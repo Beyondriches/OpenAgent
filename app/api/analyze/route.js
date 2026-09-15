@@ -479,6 +479,25 @@ function determineAction({
   }
 
   if (timeframe === "swing") {
+  /*
+   * v1.5 PULLBACK ENTRY EXCEPTION
+   *
+   * Allows a high-quality swing entry during a neutral broader outlook
+   * when price is discounted and trade economics are strong.
+   */
+  if (
+    outlook === "NEUTRAL" &&
+    finalScore >= 60 &&
+    entryQuality.quality === "Discounted" &&
+    (rrEvaluation.quality === "Good" ||
+      rrEvaluation.quality === "Strong")
+  ) {
+    return {
+      action: "BUY NOW",
+      reason:
+        "The broader swing outlook is neutral, but price is discounted and risk/reward supports a tactical pullback entry.",
+    };
+  }
     if (
       bullish &&
       finalScore >= 65 &&
