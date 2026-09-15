@@ -77,6 +77,10 @@ function rrColor(quality) {
   return "#e5e7eb";
 }
 
+function capitalColor(enabled) {
+  return enabled ? "#22c55e" : "#f59e0b";
+}
+
 const styles = {
   page: {
     minHeight: "100vh",
@@ -110,6 +114,20 @@ const styles = {
     marginBottom: "14px",
   },
 
+  riskBadge: {
+    display: "inline-block",
+    marginLeft: "8px",
+    padding: "6px 10px",
+    borderRadius: "999px",
+    background: "rgba(245,158,11,0.12)",
+    border: "1px solid rgba(245,158,11,0.35)",
+    color: "#fbbf24",
+    fontSize: "12px",
+    fontWeight: 800,
+    letterSpacing: "0.06em",
+    marginBottom: "14px",
+  },
+
   title: {
     fontSize: "clamp(34px, 7vw, 58px)",
     lineHeight: 1,
@@ -120,7 +138,7 @@ const styles = {
   subtitle: {
     margin: 0,
     color: "#94a3b8",
-    maxWidth: "760px",
+    maxWidth: "780px",
     fontSize: "16px",
     lineHeight: 1.6,
   },
@@ -187,6 +205,15 @@ const styles = {
     padding: "22px",
     marginBottom: "16px",
     backdropFilter: "blur(12px)",
+  },
+
+  capitalCard: {
+    background:
+      "linear-gradient(135deg, rgba(30,41,59,0.92), rgba(15,23,42,0.82))",
+    border: "1px solid rgba(245,158,11,0.38)",
+    borderRadius: "20px",
+    padding: "22px",
+    marginBottom: "16px",
   },
 
   sectionTitle: {
@@ -273,7 +300,6 @@ const styles = {
 export default function Home() {
   const [symbol, setSymbol] = useState("ETH");
   const [timeframe, setTimeframe] = useState("swing");
-
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -314,13 +340,20 @@ export default function Home() {
   const analysis = data?.analysis;
   const market = data?.market;
   const technicals = data?.technicals;
+  const capitalPlan = analysis?.capitalPlan;
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
         <header style={styles.header}>
-          <div style={styles.badge}>
-            OPENAGENT v1.3
+          <div>
+            <span style={styles.badge}>
+              OPENAGENT v1.4
+            </span>
+
+            <span style={styles.riskBadge}>
+              AGGRESSIVE GROWTH
+            </span>
           </div>
 
           <h1 style={styles.title}>
@@ -328,9 +361,9 @@ export default function Home() {
           </h1>
 
           <p style={styles.subtitle}>
-            Risk-aware multi-timeframe crypto intelligence
-            that separates market outlook from immediate
-            trading action.
+            Risk-aware crypto intelligence with separate
+            market outlook, immediate action and aggressive
+            position sizing with predefined downside.
           </p>
         </header>
 
@@ -449,6 +482,103 @@ export default function Home() {
                 </div>
               </div>
             </section>
+
+            {capitalPlan && (
+              <section style={styles.capitalCard}>
+                <h2 style={styles.sectionTitle}>
+                  CAPITAL PROTECTION + POSITION SIZING
+                </h2>
+
+                {timeframe === "long-term" ? (
+                  <>
+                    <div style={styles.metrics}>
+                      <Metric
+                        label="Risk Profile"
+                        value={data.riskProfile?.name}
+                        color="#fbbf24"
+                      />
+
+                      <Metric
+                        label="New Allocation"
+                        value={`${capitalPlan.allocationPct}%`}
+                        color={capitalColor(
+                          capitalPlan.enabled
+                        )}
+                      />
+
+                      <Metric
+                        label="Allocation Strength"
+                        value={
+                          capitalPlan.allocationStrength
+                        }
+                      />
+
+                      <Metric
+                        label="Leverage"
+                        value="OFF"
+                      />
+                    </div>
+
+                    <p style={styles.paragraph}>
+                      {capitalPlan.explanation}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div style={styles.metrics}>
+                      <Metric
+                        label="Risk Profile"
+                        value={data.riskProfile?.name}
+                        color="#fbbf24"
+                      />
+
+                      <Metric
+                        label="Setup Strength"
+                        value={
+                          capitalPlan.setupStrength
+                        }
+                      />
+
+                      <Metric
+                        label="Planned Account Risk"
+                        value={`${number(
+                          capitalPlan.riskPct
+                        )}%`}
+                        color={capitalColor(
+                          capitalPlan.enabled
+                        )}
+                      />
+
+                      <Metric
+                        label="Position Ceiling"
+                        value={`${number(
+                          capitalPlan.positionPct
+                        )}%`}
+                        color={capitalColor(
+                          capitalPlan.enabled
+                        )}
+                      />
+
+                      <Metric
+                        label="Invalidation Distance"
+                        value={`${number(
+                          capitalPlan.stopDistancePct
+                        )}%`}
+                      />
+
+                      <Metric
+                        label="Leverage"
+                        value="OFF"
+                      />
+                    </div>
+
+                    <p style={styles.paragraph}>
+                      {capitalPlan.explanation}
+                    </p>
+                  </>
+                )}
+              </section>
+            )}
 
             <section style={styles.card}>
               <h2 style={styles.sectionTitle}>
@@ -601,9 +731,7 @@ export default function Home() {
               <div style={styles.metrics}>
                 <Metric
                   label="Current Price"
-                  value={money(
-                    market.priceUSD
-                  )}
+                  value={money(market.priceUSD)}
                 />
 
                 <Metric

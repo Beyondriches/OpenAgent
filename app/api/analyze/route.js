@@ -49,15 +49,54 @@ const MODES = {
   },
 };
 
+/*
+  v1.4 RISK PROFILE
+
+  Aggressive means Theo may accept larger predefined
+  risk when setup quality supports it.
+
+  It does NOT mean:
+  - chasing poor entries
+  - ignoring invalidation
+  - sizing WAIT / AVOID trades
+  - risking core long-term holdings on short-term trades
+*/
+
+const RISK_PROFILE = {
+  name: "Aggressive Growth",
+
+  day: {
+    baseRiskPct: 2.0,
+    maxRiskPct: 2.5,
+  },
+
+  swing: {
+    baseRiskPct: 2.25,
+    maxRiskPct: 3.0,
+  },
+
+  longTerm: {
+    baseAllocationPct: 5,
+    strongAllocationPct: 8,
+    maxAllocationPct: 10,
+  },
+};
+
 function average(values) {
   if (!values.length) return 0;
 
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+  return (
+    values.reduce((sum, value) => sum + value, 0) /
+    values.length
+  );
 }
 
 function sma(values, period) {
   if (!values.length) return 0;
-  return average(values.slice(-Math.min(period, values.length)));
+
+  return average(
+    values.slice(-Math.min(period, values.length))
+  );
 }
 
 function calculateRSI(prices, period = 14) {
@@ -69,10 +108,14 @@ function calculateRSI(prices, period = 14) {
     changes.push(prices[i] - prices[i - 1]);
   }
 
-  const recent = changes.slice(-Math.min(period, changes.length));
+  const recent = changes.slice(
+    -Math.min(period, changes.length)
+  );
 
   const gains = recent.map((x) => (x > 0 ? x : 0));
-  const losses = recent.map((x) => (x < 0 ? Math.abs(x) : 0));
+  const losses = recent.map((x) =>
+    x < 0 ? Math.abs(x) : 0
+  );
 
   const avgGain = average(gains);
   const avgLoss = average(losses);
@@ -93,7 +136,8 @@ function standardDeviation(values) {
 
   const variance =
     values.reduce(
-      (sum, value) => sum + Math.pow(value - mean, 2),
+      (sum, value) =>
+        sum + Math.pow(value - mean, 2),
       0
     ) / values.length;
 
@@ -108,20 +152,24 @@ function calculateVolatility(prices, period = 14) {
   for (let i = 1; i < prices.length; i++) {
     if (prices[i - 1] > 0) {
       returns.push(
-        (prices[i] - prices[i - 1]) / prices[i - 1]
+        (prices[i] - prices[i - 1]) /
+          prices[i - 1]
       );
     }
   }
 
   return (
     standardDeviation(
-      returns.slice(-Math.min(period, returns.length))
+      returns.slice(
+        -Math.min(period, returns.length)
+      )
     ) * 100
   );
 }
 
 function percentChange(current, previous) {
   if (!previous) return 0;
+
   return ((current - previous) / previous) * 100;
 }
 
@@ -133,7 +181,11 @@ function round(value, decimals = 2) {
   return Number(Number(value).toFixed(decimals));
 }
 
-function calculateRiskReward(entry, invalidation, target) {
+function calculateRiskReward(
+  entry,
+  invalidation,
+  target
+) {
   const risk = Math.abs(entry - invalidation);
   const reward = Math.abs(target - entry);
 
@@ -175,29 +227,31 @@ function getConfidence(score) {
   return "Low";
 }
 
-/*
-  OUTLOOK ENGINE
-
-  Outlook deliberately uses the underlying technical score,
-  not the final action score.
-
-  This means:
-  "The asset is bullish"
-  and
-  "Do not buy at this price"
-  can both be true.
-*/
-
 function getOutlook(technicalScore) {
-  if (technicalScore >= 80) return "STRONGLY BULLISH";
-  if (technicalScore >= 65) return "BULLISH";
-  if (technicalScore >= 45) return "NEUTRAL";
-  if (technicalScore >= 30) return "BEARISH";
+  if (technicalScore >= 80) {
+    return "STRONGLY BULLISH";
+  }
+
+  if (technicalScore >= 65) {
+    return "BULLISH";
+  }
+
+  if (technicalScore >= 45) {
+    return "NEUTRAL";
+  }
+
+  if (technicalScore >= 30) {
+    return "BEARISH";
+  }
 
   return "STRONGLY BEARISH";
 }
 
-function evaluateRiskReward(rr1, rr2, minimumRR) {
+function evaluateRiskReward(
+  rr1,
+  rr2,
+  minimumRR
+) {
   let adjustment = 0;
   let quality = "Acceptable";
   let explanation =
@@ -338,17 +392,6 @@ function evaluateEntryQuality({
   };
 }
 
-/*
-  v1.3 ACTION ENGINE
-
-  Outlook describes the market.
-
-  Action answers:
-  "What should I do at this price?"
-
-  Actions are intentionally timeframe-aware.
-*/
-
 function determineAction({
   timeframe,
   outlook,
@@ -366,10 +409,6 @@ function determineAction({
     outlook === "BEARISH" ||
     outlook === "STRONGLY BEARISH";
 
-  /*
-    Hard risk/reward rejection.
-  */
-
   if (rr2 < minimumRR) {
     return {
       action: bullish ? "WAIT" : "AVOID",
@@ -378,21 +417,15 @@ function determineAction({
     };
   }
 
-  /*
-    Do not chase stretched markets.
-  */
-
   if (entryQuality.quality === "Chasing") {
     return {
-      action: bullish ? "WAIT FOR PULLBACK" : "AVOID",
+      action: bullish
+        ? "WAIT FOR PULLBACK"
+        : "AVOID",
       reason:
         "The current price is excessively extended relative to recent structure.",
     };
   }
-
-  /*
-    LONG TERM
-  */
 
   if (timeframe === "long-term") {
     if (
@@ -445,10 +478,6 @@ function determineAction({
     };
   }
 
-  /*
-    SWING
-  */
-
   if (timeframe === "swing") {
     if (
       bullish &&
@@ -487,10 +516,6 @@ function determineAction({
         "The swing setup lacks enough combined confirmation for a fresh entry.",
     };
   }
-
-  /*
-    DAY TRADING
-  */
 
   if (timeframe === "day") {
     if (
@@ -542,12 +567,201 @@ function determineAction({
   };
 }
 
+/*
+  v1.4 POSITION SIZING ENGINE
+
+  Risk percentage = maximum planned account loss
+  if invalidation is reached.
+
+  Position percentage answers:
+  "What percentage of trading capital can be deployed
+  while respecting that loss budget?"
+*/
+
+function getSetupMultiplier({
+  finalScore,
+  confidence,
+  rrQuality,
+  entryQuality,
+}) {
+  let multiplier = 0.5;
+  let setupStrength = "Moderate";
+
+  if (
+    finalScore >= 80 &&
+    confidence === "High" &&
+    (rrQuality === "Strong" ||
+      rrQuality === "Good") &&
+    (entryQuality === "Discounted" ||
+      entryQuality === "Attractive" ||
+      entryQuality === "Fair")
+  ) {
+    multiplier = 1;
+    setupStrength = "Exceptional";
+  } else if (
+    finalScore >= 70 &&
+    (rrQuality === "Strong" ||
+      rrQuality === "Good")
+  ) {
+    multiplier = 0.75;
+    setupStrength = "Strong";
+  } else if (finalScore >= 65) {
+    multiplier = 0.5;
+    setupStrength = "Moderate";
+  } else {
+    multiplier = 0.25;
+    setupStrength = "Weak";
+  }
+
+  return {
+    multiplier,
+    setupStrength,
+  };
+}
+
+function calculateTradingPosition({
+  timeframe,
+  action,
+  finalScore,
+  confidence,
+  rrQuality,
+  entryQuality,
+  entryPrice,
+  invalidation,
+}) {
+  if (action !== "BUY NOW") {
+    return {
+      enabled: false,
+      setupStrength: "No Trade",
+      riskPct: 0,
+      positionPct: 0,
+      stopDistancePct: 0,
+      explanation:
+        "Theo does not allocate trading capital unless the current action is BUY NOW.",
+    };
+  }
+
+  const riskConfig = RISK_PROFILE[timeframe];
+
+  const setup = getSetupMultiplier({
+    finalScore,
+    confidence,
+    rrQuality,
+    entryQuality,
+  });
+
+  let riskPct =
+    riskConfig.baseRiskPct * setup.multiplier;
+
+  riskPct = Math.min(
+    riskPct,
+    riskConfig.maxRiskPct
+  );
+
+  const stopDistancePct =
+    entryPrice > 0
+      ? (Math.abs(entryPrice - invalidation) /
+          entryPrice) *
+        100
+      : 0;
+
+  let positionPct =
+    stopDistancePct > 0
+      ? (riskPct / stopDistancePct) * 100
+      : 0;
+
+  /*
+    No leverage in v1.4.
+    Therefore position size cannot exceed 100%
+    of dedicated trading capital.
+  */
+
+  positionPct = clamp(positionPct, 0, 100);
+
+  return {
+    enabled: true,
+    setupStrength: setup.setupStrength,
+    setupMultiplier: setup.multiplier,
+    riskPct: round(riskPct),
+    positionPct: round(positionPct),
+    stopDistancePct: round(stopDistancePct),
+    explanation:
+      `Theo allows approximately ${round(
+        riskPct
+      )}% account risk for this ${setup.setupStrength.toLowerCase()} ${timeframe} setup. ` +
+      `With invalidation approximately ${round(
+        stopDistancePct
+      )}% from the planned entry, the unleveraged position ceiling is approximately ${round(
+        positionPct
+      )}% of dedicated trading capital.`,
+  };
+}
+
+/*
+  LONG-TERM ALLOCATION ENGINE
+
+  This is deliberately separate from short-term
+  stop-loss-based position sizing.
+*/
+
+function calculateLongTermAllocation({
+  action,
+  outlook,
+  finalScore,
+  entryQuality,
+}) {
+  if (action !== "ACCUMULATE") {
+    return {
+      enabled: false,
+      allocationPct: 0,
+      allocationStrength: "No New Allocation",
+      explanation:
+        "Theo is not recommending fresh long-term accumulation at the current price.",
+    };
+  }
+
+  let allocationPct =
+    RISK_PROFILE.longTerm.baseAllocationPct;
+
+  let allocationStrength = "Measured";
+
+  if (
+    outlook === "STRONGLY BULLISH" &&
+    finalScore >= 80 &&
+    (entryQuality === "Discounted" ||
+      entryQuality === "Attractive")
+  ) {
+    allocationPct =
+      RISK_PROFILE.longTerm.maxAllocationPct;
+
+    allocationStrength = "Aggressive";
+  } else if (
+    outlook === "STRONGLY BULLISH" ||
+    finalScore >= 75
+  ) {
+    allocationPct =
+      RISK_PROFILE.longTerm.strongAllocationPct;
+
+    allocationStrength = "Strong";
+  }
+
+  return {
+    enabled: true,
+    allocationPct,
+    allocationStrength,
+    explanation:
+      `Theo recommends a ${allocationStrength.toLowerCase()} accumulation tranche of approximately ${allocationPct}% of capital reserved for new long-term crypto purchases. Core holdings remain separate from trading capital.`,
+  };
+}
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "Theo Crypto Agent",
-    version: "1.3",
-    engine: "Theo Outlook + Action Engine",
+    version: "1.4",
+    engine:
+      "Theo Capital Protection + Aggressive Position Sizing Engine",
+    riskProfile: RISK_PROFILE.name,
     endpoint: "/api/analyze",
     marketData: "CoinGecko",
   });
@@ -557,11 +771,15 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    const symbol = String(body?.symbol || "ETH")
+    const symbol = String(
+      body?.symbol || "ETH"
+    )
       .trim()
       .toUpperCase();
 
-    const timeframe = String(body?.timeframe || "swing")
+    const timeframe = String(
+      body?.timeframe || "swing"
+    )
       .trim()
       .toLowerCase();
 
@@ -626,20 +844,27 @@ export async function POST(request) {
       );
     }
 
-    const marketData = await marketResponse.json();
-    const historyData = await historyResponse.json();
+    const marketData =
+      await marketResponse.json();
+
+    const historyData =
+      await historyResponse.json();
 
     const coin = marketData?.[0];
 
     if (!coin) {
-      throw new Error("No market data returned.");
+      throw new Error(
+        "No market data returned."
+      );
     }
 
     const historicalPrices =
       Array.isArray(historyData?.prices)
         ? historyData.prices
             .map((item) => Number(item?.[1]))
-            .filter((value) => Number.isFinite(value))
+            .filter((value) =>
+              Number.isFinite(value)
+            )
         : [];
 
     if (historicalPrices.length < 2) {
@@ -648,7 +873,8 @@ export async function POST(request) {
       );
     }
 
-    const currentPrice = Number(coin.current_price);
+    const currentPrice =
+      Number(coin.current_price);
 
     const fastSMA = sma(
       historicalPrices,
@@ -665,26 +891,40 @@ export async function POST(request) {
       config.rsiPeriod
     );
 
-    const volatility = calculateVolatility(
-      historicalPrices,
-      14
-    );
+    const volatility =
+      calculateVolatility(
+        historicalPrices,
+        14
+      );
 
-    const recentWindow = historicalPrices.slice(
-      -Math.min(14, historicalPrices.length)
-    );
+    const recentWindow =
+      historicalPrices.slice(
+        -Math.min(
+          14,
+          historicalPrices.length
+        )
+      );
 
-    const recentHigh = Math.max(...recentWindow);
-    const recentLow = Math.min(...recentWindow);
+    const recentHigh =
+      Math.max(...recentWindow);
+
+    const recentLow =
+      Math.min(...recentWindow);
 
     const sevenDaysAgo =
       historicalPrices[
-        Math.max(0, historicalPrices.length - 8)
+        Math.max(
+          0,
+          historicalPrices.length - 8
+        )
       ];
 
     const thirtyDaysAgo =
       historicalPrices[
-        Math.max(0, historicalPrices.length - 31)
+        Math.max(
+          0,
+          historicalPrices.length - 31
+        )
       ];
 
     const change7d = percentChange(
@@ -698,7 +938,6 @@ export async function POST(request) {
     );
 
     /*
-      PHASE 1
       TECHNICAL OUTLOOK SCORE
     */
 
@@ -750,7 +989,8 @@ export async function POST(request) {
       clamp(technicalScore, 0, 100)
     );
 
-    const outlook = getOutlook(technicalScore);
+    const outlook =
+      getOutlook(technicalScore);
 
     const trend =
       currentPrice > fastSMA &&
@@ -776,79 +1016,86 @@ export async function POST(request) {
         : "Low";
 
     /*
-      PHASE 2
       TRADE STRUCTURE
     */
 
     let entryLow =
-      currentPrice * (1 - config.entryPct);
+      currentPrice *
+      (1 - config.entryPct);
 
     let entryHigh =
-      currentPrice * (1 + config.entryPct);
+      currentPrice *
+      (1 + config.entryPct);
 
     if (trend === "Bullish") {
-      entryLow = Math.min(entryLow, fastSMA);
-      entryHigh = Math.max(currentPrice, fastSMA);
+      entryLow = Math.min(
+        entryLow,
+        fastSMA
+      );
+
+      entryHigh = Math.max(
+        currentPrice,
+        fastSMA
+      );
     }
 
     if (trend === "Bearish") {
-      entryLow = Math.min(currentPrice, fastSMA);
-      entryHigh = Math.max(entryHigh, fastSMA);
+      entryLow = Math.min(
+        currentPrice,
+        fastSMA
+      );
+
+      entryHigh = Math.max(
+        entryHigh,
+        fastSMA
+      );
     }
 
     const invalidation =
-      entryLow * (1 - config.invalidationPct);
+      entryLow *
+      (1 - config.invalidationPct);
 
     const target1 =
-      currentPrice * (1 + config.target1Pct);
+      currentPrice *
+      (1 + config.target1Pct);
 
     const target2 =
-      currentPrice * (1 + config.target2Pct);
+      currentPrice *
+      (1 + config.target2Pct);
 
     const entryMidpoint =
       (entryLow + entryHigh) / 2;
 
-    const rr1 = calculateRiskReward(
-      entryMidpoint,
-      invalidation,
-      target1
-    );
+    const rr1 =
+      calculateRiskReward(
+        entryMidpoint,
+        invalidation,
+        target1
+      );
 
-    const rr2 = calculateRiskReward(
-      entryMidpoint,
-      invalidation,
-      target2
-    );
+    const rr2 =
+      calculateRiskReward(
+        entryMidpoint,
+        invalidation,
+        target2
+      );
 
-    /*
-      PHASE 3
-      RISK / REWARD
-    */
+    const rrEvaluation =
+      evaluateRiskReward(
+        rr1,
+        rr2,
+        config.minRR
+      );
 
-    const rrEvaluation = evaluateRiskReward(
-      rr1,
-      rr2,
-      config.minRR
-    );
-
-    /*
-      PHASE 4
-      ENTRY QUALITY
-    */
-
-    const entryQuality = evaluateEntryQuality({
-      price: currentPrice,
-      fastSMA,
-      recentHigh,
-      recentLow,
-      rsi,
-      timeframe,
-    });
-
-    /*
-      PHASE 5
-      FINAL ACTION SCORE
-    */
+    const entryQuality =
+      evaluateEntryQuality({
+        price: currentPrice,
+        fastSMA,
+        recentHigh,
+        recentLow,
+        rsi,
+        timeframe,
+      });
 
     let finalScore =
       technicalScore +
@@ -859,28 +1106,60 @@ export async function POST(request) {
       clamp(finalScore, 0, 100)
     );
 
+    const actionDecision =
+      determineAction({
+        timeframe,
+        outlook,
+        finalScore,
+        rrEvaluation,
+        entryQuality,
+        rr2,
+        minimumRR: config.minRR,
+      });
+
+    const confidence =
+      getConfidence(technicalScore);
+
+    const entryProgress =
+      calculateEntryProgress(
+        currentPrice,
+        entryLow,
+        entryHigh
+      );
+
     /*
-      PHASE 6
-      ACTION
+      v1.4 CAPITAL ENGINE
     */
 
-    const actionDecision = determineAction({
-      timeframe,
-      outlook,
-      finalScore,
-      rrEvaluation,
-      entryQuality,
-      rr2,
-      minimumRR: config.minRR,
-    });
+    let capitalPlan;
 
-    const confidence = getConfidence(technicalScore);
-
-    const entryProgress = calculateEntryProgress(
-      currentPrice,
-      entryLow,
-      entryHigh
-    );
+    if (timeframe === "long-term") {
+      capitalPlan =
+        calculateLongTermAllocation({
+          action:
+            actionDecision.action,
+          outlook,
+          finalScore,
+          entryQuality:
+            entryQuality.quality,
+        });
+    } else {
+      capitalPlan =
+        calculateTradingPosition({
+          timeframe,
+          action:
+            actionDecision.action,
+          finalScore,
+          confidence,
+          rrQuality:
+            rrEvaluation.quality,
+          entryQuality:
+            entryQuality.quality,
+          entryPrice:
+            entryMidpoint,
+          invalidation,
+        });
+    }
 
     return NextResponse.json({
       ok: true,
@@ -888,43 +1167,62 @@ export async function POST(request) {
       timeframe,
       live: true,
       source: "CoinGecko",
-      version: "1.3",
+      version: "1.4",
+
+      riskProfile: {
+        name: RISK_PROFILE.name,
+        philosophy:
+          "Aggressive upside seeking with predefined downside and protected core capital.",
+        leverage: false,
+      },
 
       market: {
         name: coin.name,
-        priceUSD: round(currentPrice),
+        priceUSD:
+          round(currentPrice),
 
-        change24h: round(
-          coin.price_change_percentage_24h ?? 0
-        ),
+        change24h:
+          round(
+            coin.price_change_percentage_24h ??
+              0
+          ),
 
-        volume24hUSD: coin.total_volume,
-        marketCapUSD: coin.market_cap,
-        marketCapRank: coin.market_cap_rank,
+        volume24hUSD:
+          coin.total_volume,
+
+        marketCapUSD:
+          coin.market_cap,
+
+        marketCapRank:
+          coin.market_cap_rank,
       },
 
       analysis: {
         outlook,
-        action: actionDecision.action,
+
+        action:
+          actionDecision.action,
 
         technicalScore,
         finalScore,
-
         confidence,
 
         outlookReason:
           `Theo's ${timeframe} market outlook is ${outlook.toLowerCase()} based on trend, momentum, price structure and volatility.`,
 
-        actionReason: actionDecision.reason,
+        actionReason:
+          actionDecision.reason,
 
         trend,
         momentum,
         risk,
 
-        entryProgress: round(entryProgress, 0),
+        entryProgress:
+          round(entryProgress, 0),
 
         entryQuality: {
-          quality: entryQuality.quality,
+          quality:
+            entryQuality.quality,
 
           scoreAdjustment:
             entryQuality.adjustment,
@@ -932,14 +1230,16 @@ export async function POST(request) {
           explanation:
             entryQuality.explanation,
 
-          distanceFromFastSMA: round(
-            entryQuality.distanceFromFastSMA
-          ),
+          distanceFromFastSMA:
+            round(
+              entryQuality.distanceFromFastSMA
+            ),
 
-          recentRangePosition: round(
-            entryQuality.rangePosition,
-            0
-          ),
+          recentRangePosition:
+            round(
+              entryQuality.rangePosition,
+              0
+            ),
         },
 
         entryZone: {
@@ -947,7 +1247,8 @@ export async function POST(request) {
           high: round(entryHigh),
         },
 
-        invalidation: round(invalidation),
+        invalidation:
+          round(invalidation),
 
         targets: [
           round(target1),
@@ -957,7 +1258,8 @@ export async function POST(request) {
         riskReward: {
           target1: round(rr1),
           target2: round(rr2),
-          minimum: config.minRR,
+          minimum:
+            config.minRR,
 
           quality:
             rrEvaluation.quality,
@@ -968,12 +1270,19 @@ export async function POST(request) {
           explanation:
             rrEvaluation.explanation,
         },
+
+        capitalPlan,
       },
 
       technicals: {
-        rsi: round(rsi, 1),
-        fastSMA: round(fastSMA),
-        slowSMA: round(slowSMA),
+        rsi:
+          round(rsi, 1),
+
+        fastSMA:
+          round(fastSMA),
+
+        slowSMA:
+          round(slowSMA),
 
         volatility14d:
           round(volatility),
@@ -995,14 +1304,9 @@ export async function POST(request) {
         `${symbol} ${timeframe} outlook: ${outlook}. ` +
         `Action: ${actionDecision.action}. ` +
         `Technical score ${technicalScore}/100. ` +
-        `Risk/reward adjustment ${
-          rrEvaluation.adjustment >= 0 ? "+" : ""
-        }${rrEvaluation.adjustment}. ` +
-        `Entry adjustment ${
-          entryQuality.adjustment >= 0 ? "+" : ""
-        }${entryQuality.adjustment}. ` +
         `Action score ${finalScore}/100. ` +
-        actionDecision.reason,
+        `Risk profile: ${RISK_PROFILE.name}. ` +
+        capitalPlan.explanation,
 
       framework: [
         `Market outlook: ${outlook}.`,
@@ -1011,57 +1315,36 @@ export async function POST(request) {
 
         `Technical outlook score: ${technicalScore}/100.`,
 
-        `Risk/reward adjustment: ${
-          rrEvaluation.adjustment >= 0 ? "+" : ""
-        }${rrEvaluation.adjustment} points.`,
-
-        `Entry-quality adjustment: ${
-          entryQuality.adjustment >= 0 ? "+" : ""
-        }${entryQuality.adjustment} points.`,
-
         `Final action score: ${finalScore}/100.`,
 
         `Entry quality: ${entryQuality.quality}.`,
 
-        `Price vs fast SMA: ${
-          entryQuality.distanceFromFastSMA >= 0
-            ? "+"
-            : ""
-        }${round(
-          entryQuality.distanceFromFastSMA
-        )}%.`,
-
-        `Recent range position: ${round(
-          entryQuality.rangePosition,
-          0
-        )}%.`,
-
         `Risk/reward quality: ${rrEvaluation.quality}.`,
 
-        `R:R Target 1: ${round(rr1)}:1.`,
+        `Risk profile: ${RISK_PROFILE.name}.`,
 
-        `R:R Target 2: ${round(rr2)}:1.`,
+        capitalPlan.explanation,
 
-        `Minimum preferred R:R: ${config.minRR}:1.`,
+        "Higher risk is permitted only when setup quality supports it.",
 
-        `RSI: ${round(rsi, 1)}.`,
+        "WAIT, WAIT FOR PULLBACK and AVOID receive no fresh trading allocation.",
 
-        "Market outlook and immediate action are deliberately evaluated separately.",
+        "Long-term capital and short-term trading capital are evaluated separately.",
 
-        "A bullish market can still justify waiting when entry quality is poor.",
+        "No leverage is used in the v1.4 sizing model.",
 
-        "Theo favors patience over chasing stretched prices.",
+        "Invalidation defines the planned downside boundary, not a guarantee of execution price.",
 
-        "Invalidation defines where the trade thesis should be reconsidered.",
+        "Position sizing is designed to control loss before optimizing gain.",
 
-        "Keep long-term core capital separate from speculative trading capital.",
+        "Core long-term holdings should not be used to fund speculative short-term trades.",
 
-        "Avoid FOMO entries after sharp price moves.",
+        "Avoid increasing size to recover previous losses.",
       ],
     });
   } catch (error) {
     console.error(
-      "Theo v1.3 analysis error:",
+      "Theo v1.4 analysis error:",
       error
     );
 
@@ -1069,7 +1352,7 @@ export async function POST(request) {
       {
         ok: false,
         error:
-          "Unable to complete Theo Outlook + Action analysis.",
+          "Unable to complete Theo Capital Protection analysis.",
       },
       { status: 500 }
     );
