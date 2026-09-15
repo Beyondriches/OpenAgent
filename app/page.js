@@ -17,8 +17,13 @@ export default function Home() {
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol, timeframe }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          symbol,
+          timeframe,
+        }),
       });
 
       const data = await response.json();
@@ -36,7 +41,7 @@ export default function Home() {
   }
 
   const money = (value) => {
-    if (value === undefined || value === null) return "-";
+    if (value === undefined || value === null) return "—";
 
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -46,7 +51,7 @@ export default function Home() {
   };
 
   const compactMoney = (value) => {
-    if (value === undefined || value === null) return "-";
+    if (value === undefined || value === null) return "—";
 
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -56,10 +61,28 @@ export default function Home() {
     }).format(value);
   };
 
-  const verdictColor = {
-    BUY: "#38d996",
-    WAIT: "#f6c453",
-    AVOID: "#ff646e",
+  const number = (value, digits = 2) => {
+    if (value === undefined || value === null) return "—";
+    return Number(value).toFixed(digits);
+  };
+
+  const percent = (value) => {
+    if (value === undefined || value === null) return "—";
+    const n = Number(value);
+    return `${n > 0 ? "+" : ""}${n.toFixed(2)}%`;
+  };
+
+  const signalColor = (verdict) => {
+    if (verdict === "BUY") return "#42e695";
+    if (verdict === "AVOID") return "#ff5c70";
+    return "#ffc857";
+  };
+
+  const valueColor = (value) => {
+    const n = Number(value);
+    if (n > 0) return "#42e695";
+    if (n < 0) return "#ff6577";
+    return "#f5f7fb";
   };
 
   const styles = {
@@ -72,7 +95,7 @@ export default function Home() {
     },
 
     card: {
-      maxWidth: 760,
+      maxWidth: 820,
       margin: "0 auto",
       background: "#111722",
       border: "1px solid #273044",
@@ -100,13 +123,12 @@ export default function Home() {
       marginTop: 18,
       marginBottom: 8,
       fontWeight: 700,
-      fontSize: 14,
     },
 
     input: {
       width: "100%",
       boxSizing: "border-box",
-      padding: 12,
+      padding: 13,
       borderRadius: 10,
       border: "1px solid #36415a",
       background: "#0b1019",
@@ -116,12 +138,12 @@ export default function Home() {
 
     button: {
       width: "100%",
+      marginTop: 14,
       padding: 13,
-      marginTop: 16,
       border: 0,
       borderRadius: 10,
-      cursor: "pointer",
       fontWeight: 800,
+      cursor: "pointer",
       fontSize: 15,
     },
 
@@ -136,31 +158,28 @@ export default function Home() {
     topRow: {
       display: "flex",
       justifyContent: "space-between",
-      gap: 16,
       alignItems: "flex-start",
+      gap: 12,
     },
 
     live: {
-      color: "#38d996",
-      fontSize: 12,
+      color: "#42e695",
       fontWeight: 800,
+      fontSize: 12,
     },
 
     price: {
       fontSize: 34,
       fontWeight: 900,
-      margin: "22px 0 4px",
-    },
-
-    change: {
-      fontWeight: 800,
+      marginTop: 22,
+      marginBottom: 4,
     },
 
     grid: {
       display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))",
+      gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
       gap: 10,
-      marginTop: 20,
+      marginTop: 18,
     },
 
     metric: {
@@ -168,7 +187,7 @@ export default function Home() {
       border: "1px solid #273044",
       borderRadius: 10,
       padding: 12,
-      minHeight: 52,
+      minHeight: 54,
     },
 
     metricLabel: {
@@ -177,45 +196,19 @@ export default function Home() {
       marginBottom: 6,
     },
 
-    metricValue: {
-      fontWeight: 800,
-      fontSize: 15,
-    },
-
-    signal: {
+    section: {
       marginTop: 16,
-      padding: 16,
-      background: "#111827",
-      border: "1px solid #36415a",
-      borderRadius: 12,
-    },
-
-    signalTitle: {
-      color: "#8fa3c3",
-      fontSize: 12,
-      letterSpacing: 1.5,
-      marginBottom: 8,
-    },
-
-    verdict: {
-      fontSize: 28,
-      fontWeight: 900,
-      marginBottom: 14,
-    },
-
-    technical: {
-      marginTop: 16,
-      padding: 16,
-      background: "#0d1420",
+      padding: 14,
       border: "1px solid #273044",
       borderRadius: 12,
+      background: "#101725",
     },
 
-    technicalTitle: {
-      color: "#8fa3c3",
+    sectionTitle: {
+      color: "#8fb3df",
       fontSize: 12,
-      letterSpacing: 1.5,
-      marginBottom: 12,
+      letterSpacing: 1.4,
+      marginBottom: 14,
     },
 
     summary: {
@@ -228,14 +221,6 @@ export default function Home() {
       color: "#dbe4f0",
     },
 
-    source: {
-      marginTop: 18,
-      paddingTop: 14,
-      borderTop: "1px solid #273044",
-      color: "#7484a0",
-      fontSize: 12,
-    },
-
     error: {
       marginTop: 18,
       background: "#3f1515",
@@ -246,20 +231,20 @@ export default function Home() {
     },
   };
 
-  const a = result?.analysis;
-  const t = result?.technicals;
-  const m = result?.market;
+  const tech = result?.technicals;
+  const analysis = result?.analysis;
+  const market = result?.market;
 
   return (
     <main style={styles.page}>
       <section style={styles.card}>
-        <span style={styles.badge}>OpenAgent v0.7</span>
+        <span style={styles.badge}>OpenAgent v0.8</span>
 
         <h1>Theo Crypto Agent</h1>
 
         <p style={styles.subtitle}>
-          Live crypto market intelligence with technical analysis for
-          long-term, swing and day-trading research.
+          Multi-indicator crypto intelligence for long-term, swing and
+          day-trading research.
         </p>
 
         <label style={styles.label}>Asset symbol</label>
@@ -278,9 +263,9 @@ export default function Home() {
           value={timeframe}
           onChange={(e) => setTimeframe(e.target.value)}
         >
-          <option value="long-term">Long-term</option>
           <option value="swing">Swing</option>
-          <option value="day">Day trading</option>
+          <option value="day">Day Trading</option>
+          <option value="long-term">Long Term</option>
         </select>
 
         <button
@@ -298,44 +283,41 @@ export default function Home() {
             <div style={styles.topRow}>
               <div>
                 <h2 style={{ margin: 0 }}>{result.symbol}</h2>
-
-                <div style={{ color: "#94a3b8", marginTop: 4 }}>
-                  {m?.name}
-                </div>
+                <div style={styles.subtitle}>{market?.name}</div>
               </div>
 
               <div style={styles.live}>● LIVE</div>
             </div>
 
-            <div style={styles.price}>{money(m?.priceUSD)}</div>
+            <div style={styles.price}>
+              {money(market?.priceUSD)}
+            </div>
 
             <div
               style={{
-                ...styles.change,
-                color:
-                  m?.change24h >= 0 ? "#38d996" : "#ff646e",
+                fontWeight: 800,
+                color: valueColor(market?.change24h),
               }}
             >
-              {m?.change24h >= 0 ? "+" : ""}
-              {Number(m?.change24h || 0).toFixed(2)}% (24h)
+              {percent(market?.change24h)} (24h)
             </div>
 
             <div style={styles.grid}>
               <Metric
                 label="Market Cap"
-                value={compactMoney(m?.marketCapUSD)}
+                value={compactMoney(market?.marketCapUSD)}
                 styles={styles}
               />
 
               <Metric
                 label="24h Volume"
-                value={compactMoney(m?.volume24hUSD)}
+                value={compactMoney(market?.volume24hUSD)}
                 styles={styles}
               />
 
               <Metric
                 label="Market Rank"
-                value={`#${m?.marketCapRank}`}
+                value={`#${market?.marketCapRank}`}
                 styles={styles}
               />
 
@@ -346,167 +328,233 @@ export default function Home() {
               />
             </div>
 
-            <div style={styles.signal}>
-              <div style={styles.signalTitle}>THEO SIGNAL</div>
+            <div style={styles.section}>
+              <div style={styles.sectionTitle}>THEO SIGNAL</div>
 
               <div
                 style={{
-                  ...styles.verdict,
-                  color: verdictColor[a?.verdict] || "#fff",
+                  fontSize: 27,
+                  fontWeight: 900,
+                  color: signalColor(analysis?.verdict),
+                  marginBottom: 14,
                 }}
               >
-                {a?.verdict}
+                {analysis?.verdict}
               </div>
 
               <div style={styles.grid}>
                 <Metric
                   label="Theo Score"
-                  value={`${a?.score}/100`}
+                  value={`${analysis?.score}/100`}
                   styles={styles}
                 />
 
                 <Metric
                   label="Trend"
-                  value={a?.trend}
+                  value={analysis?.trend}
                   styles={styles}
                 />
 
                 <Metric
                   label="Momentum"
-                  value={a?.momentum}
+                  value={analysis?.momentum}
                   styles={styles}
                 />
 
                 <Metric
                   label="Risk"
-                  value={a?.risk}
+                  value={analysis?.risk}
                   styles={styles}
                 />
 
                 <Metric
                   label="Entry Low"
-                  value={money(a?.entryZone?.low)}
+                  value={money(analysis?.entryZone?.low)}
                   styles={styles}
                 />
 
                 <Metric
                   label="Entry High"
-                  value={money(a?.entryZone?.high)}
+                  value={money(analysis?.entryZone?.high)}
                   styles={styles}
                 />
 
                 <Metric
                   label="Invalidation"
-                  value={money(a?.invalidation)}
+                  value={money(analysis?.invalidation)}
                   styles={styles}
                 />
 
                 <Metric
                   label="Target 1"
-                  value={money(a?.targets?.[0])}
+                  value={money(analysis?.targets?.[0])}
                   styles={styles}
                 />
 
                 <Metric
                   label="Target 2"
-                  value={money(a?.targets?.[1])}
+                  value={money(analysis?.targets?.[1])}
                   styles={styles}
                 />
 
                 <Metric
                   label="24h Range"
-                  value={`${a?.range24h}%`}
+                  value={`${number(analysis?.range24h)}%`}
                   styles={styles}
                 />
 
                 <Metric
                   label="Recent Avg"
-                  value={money(a?.recentAverage)}
+                  value={money(analysis?.recentAverage)}
                   styles={styles}
                 />
 
                 <Metric
                   label="7d Change"
-                  value={`${a?.periodChange >= 0 ? "+" : ""}${a?.periodChange}%`}
+                  value={percent(market?.change7d)}
                   styles={styles}
                 />
               </div>
+            </div>
 
-              <div style={styles.technical}>
-                <div style={styles.technicalTitle}>
-                  TECHNICAL ENGINE
-                </div>
+            <div style={styles.section}>
+              <div style={styles.sectionTitle}>
+                TECHNICAL ENGINE
+              </div>
 
-                <div style={styles.grid}>
-                  <Metric
-                    label="RSI 14"
-                    value={
-                      t?.rsi14 === null ||
-                      t?.rsi14 === undefined
-                        ? "N/A"
-                        : t.rsi14
-                    }
-                    styles={styles}
-                  />
+              <div style={styles.grid}>
+                <Metric
+                  label="RSI 14"
+                  value={number(tech?.rsi14, 1)}
+                  styles={styles}
+                />
 
-                  <Metric
-                    label="SMA 7"
-                    value={money(t?.sma7)}
-                    styles={styles}
-                  />
+                <Metric
+                  label="SMA 7"
+                  value={money(tech?.sma7)}
+                  styles={styles}
+                />
 
-                  <Metric
-                    label="SMA 14"
-                    value={money(t?.sma14)}
-                    styles={styles}
-                  />
+                <Metric
+                  label="SMA 14"
+                  value={money(tech?.sma14)}
+                  styles={styles}
+                />
 
-                  <Metric
-                    label="SMA 30"
-                    value={money(t?.sma30)}
-                    styles={styles}
-                  />
+                <Metric
+                  label="SMA 30"
+                  value={money(tech?.sma30)}
+                  styles={styles}
+                />
 
-                  <Metric
-                    label="14d Volatility"
-                    value={`${t?.volatility14d}%`}
-                    styles={styles}
-                  />
+                <Metric
+                  label="EMA 12"
+                  value={money(tech?.ema12)}
+                  styles={styles}
+                />
 
-                  <Metric
-                    label="Recent High"
-                    value={money(t?.recentHigh)}
-                    styles={styles}
-                  />
+                <Metric
+                  label="EMA 26"
+                  value={money(tech?.ema26)}
+                  styles={styles}
+                />
 
-                  <Metric
-                    label="Recent Low"
-                    value={money(t?.recentLow)}
-                    styles={styles}
-                  />
+                <Metric
+                  label="MACD"
+                  value={number(tech?.macd, 4)}
+                  styles={styles}
+                />
 
-                  <Metric
-                    label="30d Change"
-                    value={`${
-                      m?.change30d >= 0 ? "+" : ""
-                    }${Number(m?.change30d || 0).toFixed(2)}%`}
-                    styles={styles}
-                  />
-                </div>
+                <Metric
+                  label="MACD Signal"
+                  value={number(tech?.macdSignal, 4)}
+                  styles={styles}
+                />
+
+                <Metric
+                  label="MACD Histogram"
+                  value={number(tech?.macdHistogram, 4)}
+                  styles={styles}
+                />
+
+                <Metric
+                  label="14d Volatility"
+                  value={`${number(tech?.volatility14d)}%`}
+                  styles={styles}
+                />
+
+                <Metric
+                  label="Recent High"
+                  value={money(tech?.recentHigh)}
+                  styles={styles}
+                />
+
+                <Metric
+                  label="Recent Low"
+                  value={money(tech?.recentLow)}
+                  styles={styles}
+                />
               </div>
             </div>
 
-            <p style={styles.summary}>{result.summary}</p>
+            <div style={styles.section}>
+              <div style={styles.sectionTitle}>
+                BOLLINGER BANDS
+              </div>
+
+              <div style={styles.grid}>
+                <Metric
+                  label="Upper Band"
+                  value={money(tech?.bollingerUpper)}
+                  styles={styles}
+                />
+
+                <Metric
+                  label="Middle Band"
+                  value={money(tech?.bollingerMiddle)}
+                  styles={styles}
+                />
+
+                <Metric
+                  label="Lower Band"
+                  value={money(tech?.bollingerLower)}
+                  styles={styles}
+                />
+
+                <Metric
+                  label="Band Width"
+                  value={`${number(tech?.bollingerWidth)}%`}
+                  styles={styles}
+                />
+
+                <Metric
+                  label="Price Position"
+                  value={tech?.bollingerPosition}
+                  styles={styles}
+                />
+              </div>
+            </div>
+
+            <p style={styles.summary}>
+              {result.summary}
+            </p>
 
             <ul style={styles.list}>
-              {(result.framework || []).map((item, index) => (
+              {result.framework?.map((item, index) => (
                 <li key={index}>{item}</li>
               ))}
             </ul>
 
-            <div style={styles.source}>
-              Data source: {result.source} • Theo Technical Analysis
-              Engine
+            <div
+              style={{
+                marginTop: 18,
+                paddingTop: 14,
+                borderTop: "1px solid #273044",
+                color: "#64748b",
+                fontSize: 12,
+              }}
+            >
+              Data source: {result.source} • Theo Multi-Indicator Engine v0.8
             </div>
           </div>
         )}
@@ -519,7 +567,7 @@ function Metric({ label, value, styles }) {
   return (
     <div style={styles.metric}>
       <div style={styles.metricLabel}>{label}</div>
-      <div style={styles.metricValue}>{value}</div>
+      <strong>{value ?? "—"}</strong>
     </div>
   );
 }
