@@ -40,31 +40,203 @@ export default function Home() {
     }
   }
 
-  const money = (value) =>
-    new Intl.NumberFormat("en-US", {
+  const money = (value) => {
+    if (value === undefined || value === null) return "—";
+
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
       maximumFractionDigits: value < 10 ? 4 : 2,
     }).format(value);
+  };
 
-  const bigMoney = (value) =>
-    new Intl.NumberFormat("en-US", {
+  const compactMoney = (value) => {
+    if (value === undefined || value === null) return "—";
+
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
       notation: "compact",
       maximumFractionDigits: 2,
     }).format(value);
+  };
+
+  const styles = {
+    page: {
+      minHeight: "100vh",
+      background: "#080b12",
+      color: "#f5f7fb",
+      fontFamily: "Arial, sans-serif",
+      padding: "48px 20px",
+    },
+
+    card: {
+      maxWidth: 760,
+      margin: "0 auto",
+      background: "#111722",
+      border: "1px solid #273044",
+      borderRadius: 18,
+      padding: 28,
+      boxShadow: "0 18px 60px rgba(0,0,0,.35)",
+    },
+
+    badge: {
+      display: "inline-block",
+      padding: "6px 10px",
+      border: "1px solid #36415a",
+      borderRadius: 999,
+      color: "#aebbd2",
+      fontSize: 13,
+    },
+
+    subtitle: {
+      color: "#aebbd2",
+      lineHeight: 1.5,
+    },
+
+    label: {
+      display: "block",
+      marginTop: 18,
+      marginBottom: 8,
+      fontWeight: 700,
+      fontSize: 14,
+    },
+
+    input: {
+      width: "100%",
+      boxSizing: "border-box",
+      padding: 12,
+      borderRadius: 10,
+      border: "1px solid #36415a",
+      background: "#0b1019",
+      color: "#fff",
+      fontSize: 16,
+    },
+
+    button: {
+      width: "100%",
+      marginTop: 16,
+      padding: 13,
+      border: 0,
+      borderRadius: 10,
+      fontWeight: 800,
+      fontSize: 15,
+      cursor: "pointer",
+    },
+
+    result: {
+      marginTop: 18,
+      padding: 16,
+      background: "#0b1019",
+      border: "1px solid #273044",
+      borderRadius: 14,
+    },
+
+    topRow: {
+      display: "flex",
+      justifyContent: "space-between",
+      gap: 16,
+      alignItems: "flex-start",
+    },
+
+    live: {
+      color: "#50e38b",
+      fontWeight: 800,
+      fontSize: 12,
+    },
+
+    price: {
+      fontSize: 34,
+      fontWeight: 900,
+      marginTop: 20,
+      marginBottom: 4,
+    },
+
+    grid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+      gap: 10,
+      marginTop: 18,
+    },
+
+    metric: {
+      background: "#111827",
+      border: "1px solid #273044",
+      borderRadius: 10,
+      padding: 13,
+    },
+
+    metricLabel: {
+      color: "#94a3b8",
+      fontSize: 12,
+      marginBottom: 6,
+    },
+
+    signal: {
+      marginTop: 18,
+      padding: 18,
+      background: "#111827",
+      border: "1px solid #36415a",
+      borderRadius: 12,
+    },
+
+    signalTitle: {
+      margin: 0,
+      fontSize: 13,
+      letterSpacing: 1.5,
+      color: "#94a3b8",
+    },
+
+    verdict: {
+      fontSize: 28,
+      fontWeight: 900,
+      marginTop: 8,
+      marginBottom: 4,
+    },
+
+    summary: {
+      marginTop: 18,
+      lineHeight: 1.55,
+    },
+
+    list: {
+      lineHeight: 1.6,
+      color: "#dbe4f0",
+    },
+
+    source: {
+      marginTop: 18,
+      paddingTop: 14,
+      borderTop: "1px solid #273044",
+      color: "#64748b",
+      fontSize: 12,
+    },
+
+    error: {
+      marginTop: 18,
+      padding: 14,
+      background: "#3f1515",
+      border: "1px solid #7f1d1d",
+      borderRadius: 10,
+      color: "#fecaca",
+    },
+  };
+
+  const market = result?.market;
+  const analysis = result?.analysis;
 
   return (
     <main style={styles.page}>
-      <div style={styles.card}>
-        <div style={styles.badge}>OpenAgent v0.3 • LIVE</div>
+      <section style={styles.card}>
+        <span style={styles.badge}>OpenAgent v0.5</span>
 
-        <h1 style={styles.title}>Theo Crypto Agent</h1>
+        <h1 style={{ fontSize: 34, marginBottom: 8 }}>
+          Theo Crypto Agent
+        </h1>
 
         <p style={styles.subtitle}>
-          Live crypto market intelligence for long-term, swing and day-trading
-          research.
+          Live crypto market intelligence for long-term, swing and
+          day-trading research.
         </p>
 
         <label style={styles.label}>Asset symbol</label>
@@ -72,7 +244,7 @@ export default function Home() {
         <input
           style={styles.input}
           value={symbol}
-          onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+          onChange={(event) => setSymbol(event.target.value.toUpperCase())}
           placeholder="ETH"
         />
 
@@ -81,11 +253,11 @@ export default function Home() {
         <select
           style={styles.input}
           value={timeframe}
-          onChange={(e) => setTimeframe(e.target.value)}
+          onChange={(event) => setTimeframe(event.target.value)}
         >
           <option value="long-term">Long-term</option>
           <option value="swing">Swing</option>
-          <option value="day">Day trade</option>
+          <option value="day">Day trading</option>
         </select>
 
         <button
@@ -93,245 +265,195 @@ export default function Home() {
           onClick={analyze}
           disabled={loading}
         >
-          {loading ? "Loading live data..." : "Analyze"}
+          {loading ? "Analyzing..." : "Analyze"}
         </button>
 
         {error && <div style={styles.error}>{error}</div>}
 
         {result && (
-          <div style={styles.result}>
-            <div style={styles.resultHeader}>
+          <section style={styles.result}>
+            <div style={styles.topRow}>
               <div>
-                <div style={styles.symbol}>{result.symbol}</div>
-                <div style={styles.coinName}>{result.market.name}</div>
+                <h2 style={{ margin: 0 }}>{result.symbol}</h2>
+
+                <div style={{ color: "#94a3b8", marginTop: 4 }}>
+                  {market?.name || result.symbol}
+                </div>
               </div>
 
-              <div style={styles.live}>
-                ● LIVE
-              </div>
+              <div style={styles.live}>● LIVE</div>
             </div>
 
             <div style={styles.price}>
-              {money(result.market.priceUSD)}
+              {money(market?.priceUSD)}
             </div>
 
             <div
               style={{
-                ...styles.change,
                 color:
-                  result.market.change24h >= 0
-                    ? "#4ade80"
-                    : "#f87171",
+                  market?.change24h >= 0
+                    ? "#50e38b"
+                    : "#ff6262",
+                fontWeight: 800,
               }}
             >
-              {result.market.change24h >= 0 ? "+" : ""}
-              {result.market.change24h.toFixed(2)}% (24h)
+              {market?.change24h !== undefined
+                ? `${market.change24h >= 0 ? "+" : ""}${market.change24h.toFixed(
+                    2
+                  )}% (24h)`
+                : "—"}
             </div>
 
             <div style={styles.grid}>
-              <div style={styles.metric}>
-                <span style={styles.metricLabel}>Market Cap</span>
-                <strong>
-                  {bigMoney(result.market.marketCapUSD)}
-                </strong>
-              </div>
+              <Metric
+                styles={styles}
+                label="Market Cap"
+                value={compactMoney(market?.marketCapUSD)}
+              />
 
-              <div style={styles.metric}>
-                <span style={styles.metricLabel}>24h Volume</span>
-                <strong>
-                  {bigMoney(result.market.volume24hUSD)}
-                </strong>
-              </div>
+              <Metric
+                styles={styles}
+                label="24h Volume"
+                value={compactMoney(market?.volume24hUSD)}
+              />
 
-              <div style={styles.metric}>
-                <span style={styles.metricLabel}>Market Rank</span>
-                <strong>
-                  #{result.market.marketCapRank}
-                </strong>
-              </div>
+              <Metric
+                styles={styles}
+                label="Market Rank"
+                value={
+                  market?.marketCapRank
+                    ? `#${market.marketCapRank}`
+                    : "—"
+                }
+              />
 
-              <div style={styles.metric}>
-                <span style={styles.metricLabel}>Mode</span>
-                <strong>{result.timeframe}</strong>
-              </div>
+              <Metric
+                styles={styles}
+                label="Mode"
+                value={result.timeframe}
+              />
             </div>
+
+            {analysis && (
+              <div style={styles.signal}>
+                <p style={styles.signalTitle}>THEO SIGNAL</p>
+
+                <div style={styles.verdict}>
+                  {analysis.verdict || "WAIT"}
+                </div>
+
+                <div style={styles.grid}>
+                  <Metric
+                    styles={styles}
+                    label="Theo Score"
+                    value={`${analysis.score ?? "—"}/100`}
+                  />
+
+                  <Metric
+                    styles={styles}
+                    label="Trend"
+                    value={analysis.trend || "—"}
+                  />
+
+                  <Metric
+                    styles={styles}
+                    label="Momentum"
+                    value={analysis.momentum || "—"}
+                  />
+
+                  <Metric
+                    styles={styles}
+                    label="Risk"
+                    value={analysis.risk || "—"}
+                  />
+
+                  <Metric
+                    styles={styles}
+                    label="Entry Low"
+                    value={money(analysis.entryZone?.low)}
+                  />
+
+                  <Metric
+                    styles={styles}
+                    label="Entry High"
+                    value={money(analysis.entryZone?.high)}
+                  />
+
+                  <Metric
+                    styles={styles}
+                    label="Invalidation"
+                    value={money(analysis.invalidation)}
+                  />
+
+                  <Metric
+                    styles={styles}
+                    label="Target 1"
+                    value={money(analysis.targets?.[0])}
+                  />
+
+                  <Metric
+                    styles={styles}
+                    label="Target 2"
+                    value={money(analysis.targets?.[1])}
+                  />
+
+                  <Metric
+                    styles={styles}
+                    label="24h Range"
+                    value={
+                      analysis.range24h !== undefined
+                        ? `${analysis.range24h.toFixed(2)}%`
+                        : "—"
+                    }
+                  />
+
+                  <Metric
+                    styles={styles}
+                    label="Recent Avg"
+                    value={money(analysis.recentAverage)}
+                  />
+
+                  <Metric
+                    styles={styles}
+                    label="Period Change"
+                    value={
+                      analysis.periodChange !== undefined
+                        ? `${analysis.periodChange >= 0 ? "+" : ""}${analysis.periodChange.toFixed(
+                            2
+                          )}%`
+                        : "—"
+                    }
+                  />
+                </div>
+              </div>
+            )}
 
             <p style={styles.summary}>{result.summary}</p>
 
-            <ul style={styles.list}>
-              {result.framework.map((item, index) => (
-                <li key={index}>{item}</li>
-              ))}
-            </ul>
+            {result.framework && (
+              <ul style={styles.list}>
+                {result.framework.map((item, index) => (
+                  <li key={index}>{item}</li>
+                ))}
+              </ul>
+            )}
 
             <div style={styles.source}>
-              Data source: {result.source}
+              Data source: {result.source || "CoinGecko"} · Theo Analysis Engine
+              v0.4
             </div>
-          </div>
+          </section>
         )}
-      </div>
+      </section>
     </main>
   );
 }
 
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "#080b12",
-    color: "#f8fafc",
-    fontFamily: "Arial, sans-serif",
-    padding: "48px 20px",
-  },
-
-  card: {
-    maxWidth: 760,
-    margin: "0 auto",
-    background: "#111827",
-    border: "1px solid #273044",
-    borderRadius: 18,
-    padding: 28,
-    boxShadow: "0 18px 60px rgba(0,0,0,.35)",
-  },
-
-  badge: {
-    display: "inline-block",
-    padding: "6px 10px",
-    border: "1px solid #36415a",
-    borderRadius: 999,
-    color: "#86efac",
-    fontSize: 13,
-    marginBottom: 18,
-  },
-
-  title: {
-    margin: "0 0 10px",
-    fontSize: 34,
-  },
-
-  subtitle: {
-    color: "#aebbd0",
-    lineHeight: 1.6,
-    marginBottom: 24,
-  },
-
-  label: {
-    display: "block",
-    marginTop: 14,
-    marginBottom: 7,
-    fontSize: 14,
-    fontWeight: 600,
-  },
-
-  input: {
-    width: "100%",
-    boxSizing: "border-box",
-    padding: 12,
-    borderRadius: 10,
-    border: "1px solid #36415a",
-    background: "#0b1019",
-    color: "#ffffff",
-    fontSize: 16,
-    marginBottom: 10,
-  },
-
-  button: {
-    width: "100%",
-    padding: 13,
-    marginTop: 8,
-    border: 0,
-    borderRadius: 10,
-    fontWeight: 700,
-    fontSize: 15,
-    cursor: "pointer",
-  },
-
-  result: {
-    marginTop: 20,
-    background: "#0b1019",
-    border: "1px solid #273044",
-    borderRadius: 14,
-    padding: 20,
-  },
-
-  resultHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  symbol: {
-    fontSize: 22,
-    fontWeight: 800,
-  },
-
-  coinName: {
-    color: "#94a3b8",
-    marginTop: 3,
-  },
-
-  live: {
-    color: "#4ade80",
-    fontWeight: 700,
-    fontSize: 13,
-  },
-
-  price: {
-    fontSize: 36,
-    fontWeight: 800,
-    marginTop: 22,
-  },
-
-  change: {
-    fontWeight: 700,
-    marginTop: 5,
-  },
-
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 12,
-    marginTop: 22,
-  },
-
-  metric: {
-    background: "#111827",
-    border: "1px solid #273044",
-    borderRadius: 10,
-    padding: 14,
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-  },
-
-  metricLabel: {
-    color: "#94a3b8",
-    fontSize: 12,
-  },
-
-  summary: {
-    marginTop: 22,
-    lineHeight: 1.5,
-  },
-
-  list: {
-    lineHeight: 1.6,
-    color: "#dbe4f0",
-  },
-
-  source: {
-    marginTop: 18,
-    paddingTop: 14,
-    borderTop: "1px solid #273044",
-    color: "#64748b",
-    fontSize: 12,
-  },
-
-  error: {
-    marginTop: 18,
-    background: "#3f1515",
-    border: "1px solid #7f1d1d",
-    borderRadius: 10,
-    padding: 14,
-    color: "#fecaca",
-  },
-};
+function Metric({ label, value, styles }) {
+  return (
+    <div style={styles.metric}>
+      <div style={styles.metricLabel}>{label}</div>
+      <strong>{value}</strong>
+    </div>
+  );
+}
