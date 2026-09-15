@@ -65,15 +65,15 @@ const MODES = {
 const RISK_PROFILE = {
   name: "Aggressive Growth",
 
-  day: {
-    baseRiskPct: 2.0,
-    maxRiskPct: 2.5,
-  },
+day: {
+  baseRiskPct: 2.0,
+  maxRiskPct: 4.0,
+},
 
-  swing: {
-    baseRiskPct: 2.25,
-    maxRiskPct: 3.0,
-  },
+swing: {
+  baseRiskPct: 2.5,
+  maxRiskPct: 5.0,
+},
 
   longTerm: {
     baseAllocationPct: 5,
@@ -584,33 +584,96 @@ function getSetupMultiplier({
   rrQuality,
   entryQuality,
 }) {
-  let multiplier = 0.5;
-  let setupStrength = "Moderate";
+  /*
+   * v1.5 ADAPTIVE RISK ENGINE
+   *
+   * Higher risk must be earned by alignment.
+   * A BUY NOW signal alone is not enough.
+   *
+   * Weak         = 0.50x base risk
+   * Moderate     = 0.75x base risk
+   * Strong       = 1.00x base risk
+   * Very Strong  = 1.40x base risk
+   * Exceptional  = 2.00x base risk
+   *
+   * The final account risk is still capped
+   * by the timeframe's hard maxRiskPct.
+   */
 
+  let multiplier = 0.5;
+  let setupStrength = "Weak";
+
+  const strongRR =
+    rrQuality === "Strong" ||
+    rrQuality === "Good";
+
+  const excellentRR =
+    rrQuality === "Strong";
+
+  const goodEntry =
+    entryQuality === "Discounted" ||
+    entryQuality === "Attractive" ||
+    entryQuality === "Fair";
+
+  const excellentEntry =
+    entryQuality === "Discounted" ||
+    entryQuality === "Attractive";
+
+  /*
+   * EXCEPTIONAL
+   *
+   * Requires very high score, high confidence,
+   * strong R:R and an advantageous entry.
+   *
+   * This is the only tier allowed to approach
+   * the full aggressive-risk ceiling.
+   */
   if (
+    finalScore >= 88 &&
+    confidence === "High" &&
+    excellentRR &&
+    excellentEntry
+  ) {
+    multiplier = 2.0;
+    setupStrength = "Exceptional";
+  }
+
+  /*
+   * VERY STRONG
+   *
+   * Strong overall alignment without requiring
+   * every exceptional condition.
+   */
+  else if (
     finalScore >= 80 &&
     confidence === "High" &&
-    (rrQuality === "Strong" ||
-      rrQuality === "Good") &&
-    (entryQuality === "Discounted" ||
-      entryQuality === "Attractive" ||
-      entryQuality === "Fair")
+    strongRR &&
+    goodEntry
   ) {
-    multiplier = 1;
-    setupStrength = "Exceptional";
-  } else if (
+    multiplier = 1.4;
+    setupStrength = "Very Strong";
+  }
+
+  /*
+   * STRONG
+   */
+  else if (
     finalScore >= 70 &&
-    (rrQuality === "Strong" ||
-      rrQuality === "Good")
+    strongRR &&
+    goodEntry
+  ) {
+    multiplier = 1.0;
+    setupStrength = "Strong";
+  }
+
+  /*
+   * MODERATE
+   */
+  else if (
+    finalScore >= 65
   ) {
     multiplier = 0.75;
-    setupStrength = "Strong";
-  } else if (finalScore >= 65) {
-    multiplier = 0.5;
     setupStrength = "Moderate";
-  } else {
-    multiplier = 0.25;
-    setupStrength = "Weak";
   }
 
   return {
