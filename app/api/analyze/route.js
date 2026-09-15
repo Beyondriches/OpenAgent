@@ -51,17 +51,19 @@ const MODES = {
 
 function average(values) {
   if (!values.length) return 0;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+
+  return (
+    values.reduce((sum, value) => sum + value, 0) /
+    values.length
+  );
 }
 
 function sma(values, period) {
   if (!values.length) return 0;
 
-  const slice = values.slice(
-    -Math.min(period, values.length)
+  return average(
+    values.slice(-Math.min(period, values.length))
   );
-
-  return average(slice);
 }
 
 function calculateRSI(prices, period = 14) {
@@ -77,12 +79,12 @@ function calculateRSI(prices, period = 14) {
     -Math.min(period, changes.length)
   );
 
-  const gains = recent.map((change) =>
-    change > 0 ? change : 0
+  const gains = recent.map((x) =>
+    x > 0 ? x : 0
   );
 
-  const losses = recent.map((change) =>
-    change < 0 ? Math.abs(change) : 0
+  const losses = recent.map((x) =>
+    x < 0 ? Math.abs(x) : 0
   );
 
   const avgGain = average(gains);
@@ -126,33 +128,27 @@ function calculateVolatility(prices, period = 14) {
     }
   }
 
-  const recent = returns.slice(
-    -Math.min(period, returns.length)
+  return (
+    standardDeviation(
+      returns.slice(
+        -Math.min(period, returns.length)
+      )
+    ) * 100
   );
-
-  return standardDeviation(recent) * 100;
 }
 
 function percentChange(current, previous) {
   if (!previous) return 0;
 
-  return (
-    ((current - previous) / previous) *
-    100
-  );
+  return ((current - previous) / previous) * 100;
 }
 
 function clamp(value, min, max) {
-  return Math.min(
-    Math.max(value, min),
-    max
-  );
+  return Math.min(Math.max(value, min), max);
 }
 
 function round(value, decimals = 2) {
-  return Number(
-    Number(value).toFixed(decimals)
-  );
+  return Number(Number(value).toFixed(decimals));
 }
 
 function getSignal(score) {
@@ -165,8 +161,7 @@ function getSignal(score) {
 }
 
 function getConfidence(score) {
-  const distance =
-    Math.abs(score - 50);
+  const distance = Math.abs(score - 50);
 
   if (distance >= 30) return "High";
   if (distance >= 15) return "Medium";
@@ -179,11 +174,8 @@ function calculateRiskReward(
   invalidation,
   target
 ) {
-  const risk =
-    Math.abs(entry - invalidation);
-
-  const reward =
-    Math.abs(target - entry);
+  const risk = Math.abs(entry - invalidation);
+  const reward = Math.abs(target - entry);
 
   if (!risk) return 0;
 
@@ -204,19 +196,15 @@ function calculateEntryProgress(
   const width = high - low;
 
   if (price < low) {
-    const distance = low - price;
-
     return clamp(
-      100 - (distance / width) * 100,
+      100 - ((low - price) / width) * 100,
       0,
       100
     );
   }
 
-  const distance = price - high;
-
   return clamp(
-    100 - (distance / width) * 100,
+    100 - ((price - high) / width) * 100,
     0,
     100
   );
@@ -236,32 +224,30 @@ function evaluateRiskReward(
     adjustment = -20;
     quality = "Poor";
     explanation =
-      "Potential reward does not justify the downside risk.";
+      "Potential reward does not justify the defined downside risk.";
   } else if (rr2 < minimumRR) {
     adjustment = -12;
     quality = "Weak";
     explanation =
       "Risk/reward is below Theo's minimum requirement for this timeframe.";
-  } else if (rr1 < 1 && rr2 >= minimumRR) {
+  } else if (rr1 < 1) {
     adjustment = -5;
     quality = "Mixed";
     explanation =
       "The first target has weak risk/reward, although the second target is acceptable.";
   } else if (
-    rr1 >= 1 &&
-    rr2 >= minimumRR
+    rr1 >= 1.5 &&
+    rr2 >= 2
   ) {
-    adjustment = 4;
-    quality = "Good";
-    explanation =
-      "Both the initial target and extended target offer reasonable trade economics.";
-  }
-
-  if (rr1 >= 1.5 && rr2 >= 2) {
     adjustment = 8;
     quality = "Strong";
     explanation =
       "The setup offers strong reward relative to the defined downside risk.";
+  } else {
+    adjustment = 4;
+    quality = "Good";
+    explanation =
+      "Both the initial target and extended target offer reasonable trade economics.";
   }
 
   return {
@@ -271,12 +257,149 @@ function evaluateRiskReward(
   };
 }
 
+/*
+  v1.2 ENTRY QUALITY ENGINE
+
+  Measures:
+  1. Price distance from fast SMA
+  2. Position inside recent range
+  3. RSI stretch
+
+  The purpose is to distinguish:
+  "bullish asset" from "good entry right now".
+*/
+
+function evaluateEntryQuality({
+  price,
+  fastSMA,
+  recentHigh,
+  recentLow,
+  rsi,
+  timeframe,
+}) {
+  const distanceFromFastSMA =
+    fastSMA > 0
+      ? ((price - fastSMA) / fastSMA) * 100
+      : 0;
+
+  const range =
+    recentHigh - recentLow;
+
+  const rangePosition =
+    range > 0
+      ? clamp(
+          ((price - recentLow) / range) * 100,
+          0,
+          100
+        )
+      : 50;
+
+  let adjustment = 0;
+
+  /*
+    Moving-average distance.
+  */
+
+  if (distanceFromFastSMA <= -3) {
+    adjustment += 6;
+  } else if (distanceFromFastSMA <= -1) {
+    adjustment += 3;
+  } else if (distanceFromFastSMA >= 6) {
+    adjustment -= 10;
+  } else if (distanceFromFastSMA >= 3) {
+    adjustment -= 5;
+  }
+
+  /*
+    Recent-range position.
+    Lower in range generally improves entry quality.
+  */
+
+  if (rangePosition <= 25) {
+    adjustment += 5;
+  } else if (rangePosition <= 45) {
+    adjustment += 2;
+  } else if (rangePosition >= 90) {
+    adjustment -= 8;
+  } else if (rangePosition >= 75) {
+    adjustment -= 4;
+  }
+
+  /*
+    RSI stretch.
+  */
+
+  if (rsi >= 75) {
+    adjustment -= 8;
+  } else if (rsi >= 68) {
+    adjustment -= 4;
+  } else if (rsi <= 32) {
+    adjustment += 4;
+  }
+
+  /*
+    Day trades are more sensitive to chasing.
+  */
+
+  if (
+    timeframe === "day" &&
+    distanceFromFastSMA >= 2
+  ) {
+    adjustment -= 3;
+  }
+
+  /*
+    Long-term mode is more tolerant of
+    short-term price extension.
+  */
+
+  if (
+    timeframe === "long-term" &&
+    adjustment < 0
+  ) {
+    adjustment = Math.ceil(adjustment * 0.7);
+  }
+
+  adjustment = clamp(adjustment, -15, 10);
+
+  let quality = "Fair";
+  let explanation =
+    "The current price is reasonably positioned, but does not offer a major entry advantage.";
+
+  if (adjustment >= 8) {
+    quality = "Discounted";
+    explanation =
+      "Price is favorably positioned relative to its trend and recent trading range.";
+  } else if (adjustment >= 3) {
+    quality = "Attractive";
+    explanation =
+      "The current price offers a relatively favorable entry compared with recent market structure.";
+  } else if (adjustment <= -10) {
+    quality = "Chasing";
+    explanation =
+      "Price is significantly extended, making a fresh entry vulnerable to buying after the move.";
+  } else if (adjustment <= -4) {
+    quality = "Stretched";
+    explanation =
+      "Price is somewhat extended relative to recent structure, reducing entry quality.";
+  }
+
+  return {
+    adjustment,
+    quality,
+    explanation,
+    distanceFromFastSMA,
+    rangePosition,
+  };
+}
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "Theo Crypto Agent",
-    version: "1.1",
-    engine: "Theo Risk-Aware Decision Engine",
+    version: "1.2",
+    engine:
+      "Theo Risk-Aware Entry Quality Engine",
     endpoint: "/api/analyze",
     marketData: "CoinGecko",
   });
@@ -305,8 +428,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           ok: false,
-          error:
-            `Unsupported asset symbol: ${symbol}`,
+          error: `Unsupported asset symbol: ${symbol}`,
         },
         { status: 400 }
       );
@@ -316,8 +438,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           ok: false,
-          error:
-            `Unsupported analysis mode: ${timeframe}`,
+          error: `Unsupported analysis mode: ${timeframe}`,
         },
         { status: 400 }
       );
@@ -372,9 +493,7 @@ export async function POST(request) {
     const coin = marketData?.[0];
 
     if (!coin) {
-      throw new Error(
-        "No market data returned."
-      );
+      throw new Error("No market data returned.");
     }
 
     const historicalPrices =
@@ -462,7 +581,7 @@ export async function POST(request) {
 
     /*
       PHASE 1
-      Technical score before trade economics.
+      TECHNICAL SCORE
     */
 
     let technicalScore = 50;
@@ -511,11 +630,7 @@ export async function POST(request) {
 
     technicalScore =
       Math.round(
-        clamp(
-          technicalScore,
-          0,
-          100
-        )
+        clamp(technicalScore, 0, 100)
       );
 
     const trend =
@@ -543,7 +658,7 @@ export async function POST(request) {
 
     /*
       PHASE 2
-      Construct the potential trade.
+      TRADE STRUCTURE
     */
 
     let entryLow =
@@ -555,27 +670,19 @@ export async function POST(request) {
       (1 + config.entryPct);
 
     if (trend === "Bullish") {
-      entryLow = Math.min(
-        entryLow,
-        fastSMA
-      );
+      entryLow =
+        Math.min(entryLow, fastSMA);
 
-      entryHigh = Math.max(
-        currentPrice,
-        fastSMA
-      );
+      entryHigh =
+        Math.max(currentPrice, fastSMA);
     }
 
     if (trend === "Bearish") {
-      entryLow = Math.min(
-        currentPrice,
-        fastSMA
-      );
+      entryLow =
+        Math.min(currentPrice, fastSMA);
 
-      entryHigh = Math.max(
-        entryHigh,
-        fastSMA
-      );
+      entryHigh =
+        Math.max(entryHigh, fastSMA);
     }
 
     const invalidation =
@@ -609,7 +716,7 @@ export async function POST(request) {
 
     /*
       PHASE 3
-      Let trade economics influence Theo.
+      RISK / REWARD
     */
 
     const rrEvaluation =
@@ -619,9 +726,30 @@ export async function POST(request) {
         config.minRR
       );
 
+    /*
+      PHASE 4
+      ENTRY QUALITY
+    */
+
+    const entryQuality =
+      evaluateEntryQuality({
+        price: currentPrice,
+        fastSMA,
+        recentHigh,
+        recentLow,
+        rsi,
+        timeframe,
+      });
+
+    /*
+      PHASE 5
+      FINAL SCORE
+    */
+
     let score =
       technicalScore +
-      rrEvaluation.adjustment;
+      rrEvaluation.adjustment +
+      entryQuality.adjustment;
 
     score =
       Math.round(
@@ -631,9 +759,7 @@ export async function POST(request) {
     let signal = getSignal(score);
 
     /*
-      Hard risk/reward guardrail:
-      Theo cannot issue BUY if even Target 2
-      fails the timeframe's minimum R:R.
+      Hard R:R guardrail.
     */
 
     if (
@@ -645,15 +771,29 @@ export async function POST(request) {
     }
 
     /*
-      STRONG BUY requires better economics
-      than an ordinary BUY.
+      Never issue STRONG BUY while
+      current price is being classified
+      as a chasing entry.
     */
 
     if (
       signal === "STRONG BUY" &&
-      (rr1 < 1.25 || rr2 < 2)
+      entryQuality.quality === "Chasing"
     ) {
       signal = "BUY";
+    }
+
+    /*
+      A severely stretched entry cannot
+      receive a fresh BUY recommendation.
+    */
+
+    if (
+      (signal === "BUY" ||
+        signal === "STRONG BUY") &&
+      entryQuality.adjustment <= -10
+    ) {
+      signal = "WAIT";
     }
 
     const confidence =
@@ -670,27 +810,33 @@ export async function POST(request) {
 
     if (signal === "STRONG BUY") {
       decisionReason =
-        "Technical conditions and trade economics are strongly aligned, with attractive reward relative to defined risk.";
+        "Technical conditions, trade economics and current entry quality are strongly aligned.";
     } else if (signal === "BUY") {
       decisionReason =
-        "Bullish evidence is strong enough for a positive setup and the risk/reward profile meets Theo's requirements.";
+        "The market structure is constructive, risk/reward is acceptable and the current entry is not excessively stretched.";
+    } else if (
+      signal === "WAIT" &&
+      entryQuality.adjustment <= -10
+    ) {
+      decisionReason =
+        "The broader setup may be constructive, but the current price is too extended for Theo to chase.";
     } else if (
       signal === "WAIT" &&
       rr2 < config.minRR
     ) {
       decisionReason =
-        `Technical conditions may be constructive, but the current risk/reward is not attractive enough. Target 2 offers ${round(
+        `Technical conditions may be constructive, but Target 2 offers only ${round(
           rr2
-        )}:1 versus Theo's ${config.minRR}:1 minimum for ${timeframe} setups.`;
+        )}:1 versus Theo's ${config.minRR}:1 minimum risk/reward requirement.`;
     } else if (signal === "WAIT") {
       decisionReason =
-        "The indicators remain mixed or insufficiently aligned for a high-conviction entry.";
+        "The combined technical, risk/reward and entry-quality evidence is not strong enough for a high-conviction entry.";
     } else if (signal === "SELL") {
       decisionReason =
-        "Bearish conditions currently outweigh bullish conditions and the setup does not justify new long exposure.";
+        "Bearish conditions outweigh bullish evidence and the setup does not justify fresh long exposure.";
     } else {
       decisionReason =
-        "Multiple indicators are aligned negatively and downside conditions dominate.";
+        "Multiple conditions are aligned negatively and downside evidence dominates.";
     }
 
     return NextResponse.json({
@@ -699,10 +845,11 @@ export async function POST(request) {
       timeframe,
       live: true,
       source: "CoinGecko",
-      version: "1.1",
+      version: "1.2",
 
       market: {
         name: coin.name,
+
         priceUSD:
           round(currentPrice),
 
@@ -743,6 +890,28 @@ export async function POST(request) {
         entryProgress:
           round(entryProgress, 0),
 
+        entryQuality: {
+          quality:
+            entryQuality.quality,
+
+          scoreAdjustment:
+            entryQuality.adjustment,
+
+          explanation:
+            entryQuality.explanation,
+
+          distanceFromFastSMA:
+            round(
+              entryQuality.distanceFromFastSMA
+            ),
+
+          recentRangePosition:
+            round(
+              entryQuality.rangePosition,
+              0
+            ),
+        },
+
         entryZone: {
           low: round(entryLow),
           high: round(entryHigh),
@@ -758,6 +927,7 @@ export async function POST(request) {
 
         riskReward: {
           target1: round(rr1),
+
           target2: round(rr2),
 
           minimum:
@@ -803,11 +973,17 @@ export async function POST(request) {
       summary:
         `${symbol} ${timeframe} analysis: ${signal}. ` +
         `Technical score ${technicalScore}/100. ` +
-        `Risk-adjusted Theo score ${score}/100 with ${confidence.toLowerCase()} confidence. ` +
+        `R:R adjustment ${
+          rrEvaluation.adjustment >= 0 ? "+" : ""
+        }${rrEvaluation.adjustment}. ` +
+        `Entry adjustment ${
+          entryQuality.adjustment >= 0 ? "+" : ""
+        }${entryQuality.adjustment}. ` +
+        `Final Theo score ${score}/100. ` +
         decisionReason,
 
       framework: [
-        `Technical score before risk/reward: ${technicalScore}/100.`,
+        `Technical score: ${technicalScore}/100.`,
 
         `Risk/reward adjustment: ${
           rrEvaluation.adjustment >= 0
@@ -815,32 +991,42 @@ export async function POST(request) {
             : ""
         }${rrEvaluation.adjustment} points.`,
 
+        `Entry-quality adjustment: ${
+          entryQuality.adjustment >= 0
+            ? "+"
+            : ""
+        }${entryQuality.adjustment} points.`,
+
         `Final Theo score: ${score}/100.`,
 
-        `Risk/reward quality: ${rrEvaluation.quality}.`,
+        `Entry quality: ${entryQuality.quality}.`,
 
-        `Risk/reward to Target 1: ${round(
-          rr1
-        )}:1.`,
+        `Price vs fast SMA: ${
+          entryQuality.distanceFromFastSMA >= 0
+            ? "+"
+            : ""
+        }${round(
+          entryQuality.distanceFromFastSMA
+        )}%.`,
 
-        `Risk/reward to Target 2: ${round(
-          rr2
-        )}:1.`,
-
-        `Minimum preferred R:R for this mode: ${config.minRR}:1.`,
-
-        `Entry-zone proximity: ${round(
-          entryProgress,
+        `Recent range position: ${round(
+          entryQuality.rangePosition,
           0
         )}%.`,
 
-        `Trend: ${trend}.`,
+        `Risk/reward quality: ${rrEvaluation.quality}.`,
 
-        `Momentum: ${momentum}.`,
+        `R:R Target 1: ${round(rr1)}:1.`,
+
+        `R:R Target 2: ${round(rr2)}:1.`,
+
+        `Minimum preferred R:R: ${config.minRR}:1.`,
 
         `RSI: ${round(rsi, 1)}.`,
 
-        "A technically attractive market is not automatically an attractive trade.",
+        "A bullish asset can still be a poor entry if price is excessively extended.",
+
+        "Theo favors patience over chasing when entry quality deteriorates.",
 
         "Invalidation defines where the trade thesis should be reconsidered.",
 
@@ -851,7 +1037,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error(
-      "Theo v1.1 analysis error:",
+      "Theo v1.2 analysis error:",
       error
     );
 
@@ -859,7 +1045,7 @@ export async function POST(request) {
       {
         ok: false,
         error:
-          "Unable to complete Theo Risk-Aware Decision Engine analysis.",
+          "Unable to complete Theo Entry Quality analysis.",
       },
       { status: 500 }
     );

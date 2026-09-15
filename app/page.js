@@ -63,6 +63,12 @@ export default function Home() {
     return Number(value).toFixed(digits);
   }
 
+  function signed(value, suffix = "") {
+    if (value === null || value === undefined) return "—";
+
+    return `${Number(value) >= 0 ? "+" : ""}${number(value)}${suffix}`;
+  }
+
   function signalColor(signal) {
     if (signal === "STRONG BUY") return "#20e38a";
     if (signal === "BUY") return "#54e39b";
@@ -72,13 +78,22 @@ export default function Home() {
     return "#ffffff";
   }
 
-  function qualityColor(quality) {
+  function rrColor(quality) {
     if (quality === "Strong") return "#20e38a";
     if (quality === "Good") return "#54e39b";
     if (quality === "Acceptable") return "#7dd3fc";
     if (quality === "Mixed") return "#ffc857";
     if (quality === "Weak") return "#ff8a65";
     if (quality === "Poor") return "#ff5263";
+    return "#ffffff";
+  }
+
+  function entryColor(quality) {
+    if (quality === "Discounted") return "#20e38a";
+    if (quality === "Attractive") return "#54e39b";
+    if (quality === "Fair") return "#7dd3fc";
+    if (quality === "Stretched") return "#ffc857";
+    if (quality === "Chasing") return "#ff5263";
     return "#ffffff";
   }
 
@@ -249,6 +264,7 @@ export default function Home() {
   const analysis = result?.analysis;
   const technicals = result?.technicals;
   const rr = analysis?.riskReward;
+  const entry = analysis?.entryQuality;
 
   const progress = Math.max(
     0,
@@ -258,13 +274,13 @@ export default function Home() {
   return (
     <main style={styles.page}>
       <section style={styles.card}>
-        <span style={styles.badge}>OpenAgent v1.1</span>
+        <span style={styles.badge}>OpenAgent v1.2</span>
 
         <h1>Theo Crypto Agent</h1>
 
         <p style={styles.subtitle}>
-          Risk-aware multi-timeframe crypto decision intelligence
-          for long-term, swing and day-trading research.
+          Risk-aware multi-timeframe crypto intelligence with
+          entry-quality analysis for long-term, swing and day trading.
         </p>
 
         <label style={styles.label}>Asset symbol</label>
@@ -360,7 +376,7 @@ export default function Home() {
 
             <div style={styles.section}>
               <div style={styles.sectionTitle}>
-                THEO RISK-AWARE DECISION ENGINE
+                THEO ENTRY QUALITY DECISION ENGINE
               </div>
 
               <div
@@ -381,7 +397,7 @@ export default function Home() {
                 />
 
                 <Metric
-                  label="Risk-Adjusted Score"
+                  label="Final Theo Score"
                   value={`${analysis?.score}/100`}
                   styles={styles}
                 />
@@ -409,9 +425,74 @@ export default function Home() {
                   value={analysis?.risk}
                   styles={styles}
                 />
+              </div>
+
+              <div style={styles.reason}>
+                <strong>Why Theo chose this:</strong>
+
+                <div style={{ marginTop: 6 }}>
+                  {analysis?.reason}
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.section}>
+              <div style={styles.sectionTitle}>
+                ENTRY QUALITY
+              </div>
+
+              <div
+                style={{
+                  fontSize: 25,
+                  fontWeight: 900,
+                  color: entryColor(entry?.quality),
+                }}
+              >
+                {entry?.quality || "—"}
+              </div>
+
+              <div style={styles.grid}>
+                <Metric
+                  label="Entry Adjustment"
+                  value={
+                    entry?.scoreAdjustment !== undefined
+                      ? `${
+                          entry.scoreAdjustment >= 0 ? "+" : ""
+                        }${entry.scoreAdjustment}`
+                      : "—"
+                  }
+                  styles={styles}
+                  valueColor={entryColor(entry?.quality)}
+                />
 
                 <Metric
-                  label="Entry Proximity"
+                  label="Price vs Fast SMA"
+                  value={
+                    entry?.distanceFromFastSMA !== undefined
+                      ? signed(
+                          entry.distanceFromFastSMA,
+                          "%"
+                        )
+                      : "—"
+                  }
+                  styles={styles}
+                />
+
+                <Metric
+                  label="Recent Range Position"
+                  value={
+                    entry?.recentRangePosition !== undefined
+                      ? `${number(
+                          entry.recentRangePosition,
+                          0
+                        )}%`
+                      : "—"
+                  }
+                  styles={styles}
+                />
+
+                <Metric
+                  label="Entry-Zone Proximity"
                   value={`${number(
                     analysis?.entryProgress,
                     0
@@ -421,10 +502,10 @@ export default function Home() {
               </div>
 
               <div style={styles.reason}>
-                <strong>Why Theo chose this:</strong>
+                <strong>Entry assessment:</strong>
 
                 <div style={{ marginTop: 6 }}>
-                  {analysis?.reason}
+                  {entry?.explanation}
                 </div>
               </div>
             </div>
@@ -439,11 +520,11 @@ export default function Home() {
                   label="R:R Quality"
                   value={rr?.quality}
                   styles={styles}
-                  valueColor={qualityColor(rr?.quality)}
+                  valueColor={rrColor(rr?.quality)}
                 />
 
                 <Metric
-                  label="Score Adjustment"
+                  label="R:R Adjustment"
                   value={
                     rr?.scoreAdjustment !== undefined
                       ? `${
@@ -605,17 +686,19 @@ export default function Home() {
 
                 <Metric
                   label="7d Change"
-                  value={`${
-                    technicals?.change7d >= 0 ? "+" : ""
-                  }${number(technicals?.change7d)}%`}
+                  value={`${signed(
+                    technicals?.change7d,
+                    "%"
+                  )}`}
                   styles={styles}
                 />
 
                 <Metric
                   label="30d Change"
-                  value={`${
-                    technicals?.change30d >= 0 ? "+" : ""
-                  }${number(technicals?.change30d)}%`}
+                  value={`${signed(
+                    technicals?.change30d,
+                    "%"
+                  )}`}
                   styles={styles}
                 />
               </div>
@@ -626,9 +709,11 @@ export default function Home() {
             </p>
 
             <ul style={styles.list}>
-              {(result.framework || []).map((item, index) => (
-                <li key={index}>{item}</li>
-              ))}
+              {(result.framework || []).map(
+                (item, index) => (
+                  <li key={index}>{item}</li>
+                )
+              )}
             </ul>
 
             <div
@@ -640,8 +725,8 @@ export default function Home() {
                 fontSize: 12,
               }}
             >
-              Data source: {result.source} • Theo Risk-Aware
-              Decision Engine v1.1
+              Data source: {result.source} • Theo Entry
+              Quality Engine v1.2
             </div>
           </div>
         )}
