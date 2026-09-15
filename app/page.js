@@ -72,6 +72,16 @@ export default function Home() {
     return "#ffffff";
   }
 
+  function qualityColor(quality) {
+    if (quality === "Strong") return "#20e38a";
+    if (quality === "Good") return "#54e39b";
+    if (quality === "Acceptable") return "#7dd3fc";
+    if (quality === "Mixed") return "#ffc857";
+    if (quality === "Weak") return "#ff8a65";
+    if (quality === "Poor") return "#ff5263";
+    return "#ffffff";
+  }
+
   const styles = {
     page: {
       minHeight: "100vh",
@@ -238,6 +248,7 @@ export default function Home() {
   const market = result?.market;
   const analysis = result?.analysis;
   const technicals = result?.technicals;
+  const rr = analysis?.riskReward;
 
   const progress = Math.max(
     0,
@@ -247,13 +258,13 @@ export default function Home() {
   return (
     <main style={styles.page}>
       <section style={styles.card}>
-        <span style={styles.badge}>OpenAgent v1.0</span>
+        <span style={styles.badge}>OpenAgent v1.1</span>
 
         <h1>Theo Crypto Agent</h1>
 
         <p style={styles.subtitle}>
-          Multi-timeframe crypto decision intelligence for long-term,
-          swing and day-trading research.
+          Risk-aware multi-timeframe crypto decision intelligence
+          for long-term, swing and day-trading research.
         </p>
 
         <label style={styles.label}>Asset symbol</label>
@@ -294,9 +305,7 @@ export default function Home() {
             <div style={styles.topRow}>
               <div>
                 <h2 style={{ margin: 0 }}>{result.symbol}</h2>
-                <div style={styles.subtitle}>
-                  {market?.name}
-                </div>
+                <div style={styles.subtitle}>{market?.name}</div>
               </div>
 
               <div style={styles.live}>● LIVE</div>
@@ -351,7 +360,7 @@ export default function Home() {
 
             <div style={styles.section}>
               <div style={styles.sectionTitle}>
-                THEO DECISION ENGINE
+                THEO RISK-AWARE DECISION ENGINE
               </div>
 
               <div
@@ -366,7 +375,13 @@ export default function Home() {
 
               <div style={styles.grid}>
                 <Metric
-                  label="Theo Score"
+                  label="Technical Score"
+                  value={`${analysis?.technicalScore}/100`}
+                  styles={styles}
+                />
+
+                <Metric
+                  label="Risk-Adjusted Score"
                   value={`${analysis?.score}/100`}
                   styles={styles}
                 />
@@ -407,8 +422,74 @@ export default function Home() {
 
               <div style={styles.reason}>
                 <strong>Why Theo chose this:</strong>
+
                 <div style={{ marginTop: 6 }}>
                   {analysis?.reason}
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.section}>
+              <div style={styles.sectionTitle}>
+                RISK / REWARD GATE
+              </div>
+
+              <div style={styles.grid}>
+                <Metric
+                  label="R:R Quality"
+                  value={rr?.quality}
+                  styles={styles}
+                  valueColor={qualityColor(rr?.quality)}
+                />
+
+                <Metric
+                  label="Score Adjustment"
+                  value={
+                    rr?.scoreAdjustment !== undefined
+                      ? `${
+                          rr.scoreAdjustment >= 0 ? "+" : ""
+                        }${rr.scoreAdjustment}`
+                      : "—"
+                  }
+                  styles={styles}
+                />
+
+                <Metric
+                  label="Minimum R:R"
+                  value={
+                    rr?.minimum !== undefined
+                      ? `${number(rr.minimum)}:1`
+                      : "—"
+                  }
+                  styles={styles}
+                />
+
+                <Metric
+                  label="R:R Target 1"
+                  value={
+                    rr?.target1 !== undefined
+                      ? `${number(rr.target1)}:1`
+                      : "—"
+                  }
+                  styles={styles}
+                />
+
+                <Metric
+                  label="R:R Target 2"
+                  value={
+                    rr?.target2 !== undefined
+                      ? `${number(rr.target2)}:1`
+                      : "—"
+                  }
+                  styles={styles}
+                />
+              </div>
+
+              <div style={styles.reason}>
+                <strong>Trade economics:</strong>
+
+                <div style={{ marginTop: 6 }}>
+                  {rr?.explanation}
                 </div>
               </div>
             </div>
@@ -446,30 +527,6 @@ export default function Home() {
                 <Metric
                   label="Target 2"
                   value={money(analysis?.targets?.[1])}
-                  styles={styles}
-                />
-
-                <Metric
-                  label="R:R Target 1"
-                  value={
-                    analysis?.riskReward?.target1 !== undefined
-                      ? `${number(
-                          analysis.riskReward.target1
-                        )}:1`
-                      : "—"
-                  }
-                  styles={styles}
-                />
-
-                <Metric
-                  label="R:R Target 2"
-                  value={
-                    analysis?.riskReward?.target2 !== undefined
-                      ? `${number(
-                          analysis.riskReward.target2
-                        )}:1`
-                      : "—"
-                  }
                   styles={styles}
                 />
               </div>
@@ -548,17 +605,17 @@ export default function Home() {
 
                 <Metric
                   label="7d Change"
-                  value={`${technicals?.change7d >= 0 ? "+" : ""}${number(
-                    technicals?.change7d
-                  )}%`}
+                  value={`${
+                    technicals?.change7d >= 0 ? "+" : ""
+                  }${number(technicals?.change7d)}%`}
                   styles={styles}
                 />
 
                 <Metric
                   label="30d Change"
-                  value={`${technicals?.change30d >= 0 ? "+" : ""}${number(
-                    technicals?.change30d
-                  )}%`}
+                  value={`${
+                    technicals?.change30d >= 0 ? "+" : ""
+                  }${number(technicals?.change30d)}%`}
                   styles={styles}
                 />
               </div>
@@ -569,11 +626,9 @@ export default function Home() {
             </p>
 
             <ul style={styles.list}>
-              {(result.framework || []).map(
-                (item, index) => (
-                  <li key={index}>{item}</li>
-                )
-              )}
+              {(result.framework || []).map((item, index) => (
+                <li key={index}>{item}</li>
+              ))}
             </ul>
 
             <div
@@ -585,8 +640,8 @@ export default function Home() {
                 fontSize: 12,
               }}
             >
-              Data source: {result.source} • Theo Decision
-              Engine v1.0
+              Data source: {result.source} • Theo Risk-Aware
+              Decision Engine v1.1
             </div>
           </div>
         )}
@@ -595,11 +650,23 @@ export default function Home() {
   );
 }
 
-function Metric({ label, value, styles }) {
+function Metric({
+  label,
+  value,
+  styles,
+  valueColor,
+}) {
   return (
     <div style={styles.metric}>
       <div style={styles.metricLabel}>{label}</div>
-      <strong>{value ?? "—"}</strong>
+
+      <strong
+        style={{
+          color: valueColor || "#f5f7fb",
+        }}
+      >
+        {value ?? "—"}
+      </strong>
     </div>
   );
 }
