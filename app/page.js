@@ -145,7 +145,8 @@ const styles = {
 
   controls: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(180px, 1fr))",
     gap: "12px",
     marginBottom: "18px",
   },
@@ -226,7 +227,8 @@ const styles = {
 
   decisionGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(230px, 1fr))",
     gap: "14px",
   },
 
@@ -260,7 +262,8 @@ const styles = {
 
   metrics: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(140px, 1fr))",
     gap: "10px",
   },
 
@@ -299,38 +302,92 @@ const styles = {
 
 export default function Home() {
   const [symbol, setSymbol] = useState("ETH");
-  const [timeframe, setTimeframe] = useState("swing");
+  const [timeframe, setTimeframe] =
+    useState("swing");
+
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
+
   const [error, setError] = useState("");
+
+  function changeSymbol(value) {
+    setSymbol(value);
+
+    // v1.5:
+    // Never display analysis belonging
+    // to a previously selected asset.
+    setData(null);
+    setError("");
+  }
+
+  function changeTimeframe(value) {
+    setTimeframe(value);
+
+    // v1.5:
+    // Never display analysis belonging
+    // to a previously selected timeframe.
+    setData(null);
+    setError("");
+  }
 
   async function analyze() {
     try {
       setLoading(true);
       setError("");
+      setData(null);
 
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          symbol,
-          timeframe,
-        }),
-      });
+      const response = await fetch(
+        "/api/analyze",
+        {
+          method: "POST",
 
-      const result = await response.json();
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            symbol,
+            timeframe,
+          }),
+        }
+      );
+
+      const result =
+        await response.json();
 
       if (!response.ok || !result.ok) {
         throw new Error(
-          result?.error || "Unable to analyze market."
+          result?.error ||
+            "Unable to analyze market."
+        );
+      }
+
+      /*
+        Extra v1.5 safety check.
+
+        Even if an old/cached response somehow
+        arrives, Theo will not display it unless
+        it belongs to the selected asset and mode.
+      */
+
+      if (
+        result.symbol !== symbol ||
+        result.timeframe !== timeframe
+      ) {
+        throw new Error(
+          "Analysis context changed. Please analyze again."
         );
       }
 
       setData(result);
     } catch (err) {
-      setError(err.message || "Something went wrong.");
+      setError(
+        err.message ||
+          "Something went wrong."
+      );
+
       setData(null);
     } finally {
       setLoading(false);
@@ -340,7 +397,8 @@ export default function Home() {
   const analysis = data?.analysis;
   const market = data?.market;
   const technicals = data?.technicals;
-  const capitalPlan = analysis?.capitalPlan;
+  const capitalPlan =
+    analysis?.capitalPlan;
 
   return (
     <main style={styles.page}>
@@ -348,7 +406,7 @@ export default function Home() {
         <header style={styles.header}>
           <div>
             <span style={styles.badge}>
-              OPENAGENT v1.4
+              OPENAGENT v1.5
             </span>
 
             <span style={styles.riskBadge}>
@@ -361,9 +419,10 @@ export default function Home() {
           </h1>
 
           <p style={styles.subtitle}>
-            Risk-aware crypto intelligence with separate
-            market outlook, immediate action and aggressive
-            position sizing with predefined downside.
+            Adaptive crypto intelligence with
+            separate market outlook, immediate
+            action, entry-quality analysis and
+            disciplined aggressive capital sizing.
           </p>
         </header>
 
@@ -377,11 +436,16 @@ export default function Home() {
               style={styles.select}
               value={symbol}
               onChange={(e) =>
-                setSymbol(e.target.value)
+                changeSymbol(
+                  e.target.value
+                )
               }
             >
               {COINS.map((coin) => (
-                <option key={coin} value={coin}>
+                <option
+                  key={coin}
+                  value={coin}
+                >
                   {coin}
                 </option>
               ))}
@@ -397,7 +461,9 @@ export default function Home() {
               style={styles.select}
               value={timeframe}
               onChange={(e) =>
-                setTimeframe(e.target.value)
+                changeTimeframe(
+                  e.target.value
+                )
               }
             >
               {MODES.map((mode) => (
@@ -415,7 +481,9 @@ export default function Home() {
         <button
           style={{
             ...styles.button,
-            opacity: loading ? 0.65 : 1,
+            opacity: loading
+              ? 0.65
+              : 1,
           }}
           onClick={analyze}
           disabled={loading}
@@ -434,73 +502,135 @@ export default function Home() {
         {data && analysis && (
           <>
             <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>
-                THEO OUTLOOK + ACTION ENGINE
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
+                THEO OUTLOOK + ACTION
+                ENGINE
               </h2>
 
-              <div style={styles.decisionGrid}>
-                <div style={styles.decisionBox}>
-                  <div style={styles.decisionLabel}>
+              <div
+                style={
+                  styles.decisionGrid
+                }
+              >
+                <div
+                  style={
+                    styles.decisionBox
+                  }
+                >
+                  <div
+                    style={
+                      styles.decisionLabel
+                    }
+                  >
                     MARKET OUTLOOK
                   </div>
 
                   <div
                     style={{
                       ...styles.decisionValue,
-                      color: outlookColor(
-                        analysis.outlook
-                      ),
+
+                      color:
+                        outlookColor(
+                          analysis.outlook
+                        ),
                     }}
                   >
                     {analysis.outlook}
                   </div>
 
-                  <div style={styles.reason}>
-                    {analysis.outlookReason}
+                  <div
+                    style={
+                      styles.reason
+                    }
+                  >
+                    {
+                      analysis.outlookReason
+                    }
                   </div>
                 </div>
 
-                <div style={styles.decisionBox}>
-                  <div style={styles.decisionLabel}>
+                <div
+                  style={
+                    styles.decisionBox
+                  }
+                >
+                  <div
+                    style={
+                      styles.decisionLabel
+                    }
+                  >
                     ACTION NOW
                   </div>
 
                   <div
                     style={{
                       ...styles.decisionValue,
-                      color: actionColor(
-                        analysis.action
-                      ),
+
+                      color:
+                        actionColor(
+                          analysis.action
+                        ),
                     }}
                   >
                     {analysis.action}
                   </div>
 
-                  <div style={styles.reason}>
-                    {analysis.actionReason}
+                  <div
+                    style={
+                      styles.reason
+                    }
+                  >
+                    {
+                      analysis.actionReason
+                    }
                   </div>
                 </div>
               </div>
             </section>
 
             {capitalPlan && (
-              <section style={styles.capitalCard}>
-                <h2 style={styles.sectionTitle}>
-                  CAPITAL PROTECTION + POSITION SIZING
+              <section
+                style={
+                  styles.capitalCard
+                }
+              >
+                <h2
+                  style={
+                    styles.sectionTitle
+                  }
+                >
+                  CAPITAL PROTECTION +
+                  POSITION SIZING
                 </h2>
 
-                {timeframe === "long-term" ? (
+                {data.timeframe ===
+                "long-term" ? (
                   <>
-                    <div style={styles.metrics}>
+                    <div
+                      style={
+                        styles.metrics
+                      }
+                    >
                       <Metric
                         label="Risk Profile"
-                        value={data.riskProfile?.name}
+                        value={
+                          data
+                            .riskProfile
+                            ?.name
+                        }
                         color="#fbbf24"
                       />
 
                       <Metric
                         label="New Allocation"
-                        value={`${capitalPlan.allocationPct}%`}
+                        value={`${number(
+                          capitalPlan.allocationPct,
+                          0
+                        )}%`}
                         color={capitalColor(
                           capitalPlan.enabled
                         )}
@@ -519,16 +649,30 @@ export default function Home() {
                       />
                     </div>
 
-                    <p style={styles.paragraph}>
-                      {capitalPlan.explanation}
+                    <p
+                      style={
+                        styles.paragraph
+                      }
+                    >
+                      {
+                        capitalPlan.explanation
+                      }
                     </p>
                   </>
                 ) : (
                   <>
-                    <div style={styles.metrics}>
+                    <div
+                      style={
+                        styles.metrics
+                      }
+                    >
                       <Metric
                         label="Risk Profile"
-                        value={data.riskProfile?.name}
+                        value={
+                          data
+                            .riskProfile
+                            ?.name
+                        }
                         color="#fbbf24"
                       />
 
@@ -572,8 +716,14 @@ export default function Home() {
                       />
                     </div>
 
-                    <p style={styles.paragraph}>
-                      {capitalPlan.explanation}
+                    <p
+                      style={
+                        styles.paragraph
+                      }
+                    >
+                      {
+                        capitalPlan.explanation
+                      }
                     </p>
                   </>
                 )}
@@ -581,11 +731,17 @@ export default function Home() {
             )}
 
             <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
                 DECISION QUALITY
               </h2>
 
-              <div style={styles.metrics}>
+              <div
+                style={styles.metrics}
+              >
                 <Metric
                   label="Technical Score"
                   value={`${analysis.technicalScore}/100`}
@@ -598,7 +754,9 @@ export default function Home() {
 
                 <Metric
                   label="Confidence"
-                  value={analysis.confidence}
+                  value={
+                    analysis.confidence
+                  }
                 />
 
                 <Metric
@@ -608,7 +766,9 @@ export default function Home() {
 
                 <Metric
                   label="Momentum"
-                  value={analysis.momentum}
+                  value={
+                    analysis.momentum
+                  }
                 />
 
                 <Metric
@@ -619,25 +779,36 @@ export default function Home() {
             </section>
 
             <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
                 ENTRY QUALITY
               </h2>
 
-              <div style={styles.metrics}>
+              <div
+                style={styles.metrics}
+              >
                 <Metric
                   label="Quality"
                   value={
-                    analysis.entryQuality.quality
+                    analysis
+                      .entryQuality
+                      .quality
                   }
                   color={entryColor(
-                    analysis.entryQuality.quality
+                    analysis
+                      .entryQuality
+                      .quality
                   )}
                 />
 
                 <Metric
                   label="Entry Adjustment"
                   value={`${signed(
-                    analysis.entryQuality
+                    analysis
+                      .entryQuality
                       .scoreAdjustment
                   )} pts`}
                 />
@@ -645,7 +816,8 @@ export default function Home() {
                 <Metric
                   label="Price vs Fast SMA"
                   value={`${signed(
-                    analysis.entryQuality
+                    analysis
+                      .entryQuality
                       .distanceFromFastSMA
                   )}%`}
                 />
@@ -661,90 +833,123 @@ export default function Home() {
                 />
               </div>
 
-              <p style={styles.paragraph}>
+              <p
+                style={styles.paragraph}
+              >
                 {
-                  analysis.entryQuality
+                  analysis
+                    .entryQuality
                     .explanation
                 }
               </p>
             </section>
 
             <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
                 RISK / REWARD GATE
               </h2>
 
-              <div style={styles.metrics}>
+              <div
+                style={styles.metrics}
+              >
                 <Metric
                   label="Quality"
                   value={
-                    analysis.riskReward.quality
+                    analysis
+                      .riskReward
+                      .quality
                   }
                   color={rrColor(
-                    analysis.riskReward.quality
+                    analysis
+                      .riskReward
+                      .quality
                   )}
                 />
 
                 <Metric
                   label="R:R Target 1"
                   value={`${number(
-                    analysis.riskReward.target1
+                    analysis
+                      .riskReward
+                      .target1
                   )}:1`}
                 />
 
                 <Metric
                   label="R:R Target 2"
                   value={`${number(
-                    analysis.riskReward.target2
+                    analysis
+                      .riskReward
+                      .target2
                   )}:1`}
                 />
 
                 <Metric
                   label="Minimum"
                   value={`${number(
-                    analysis.riskReward.minimum
+                    analysis
+                      .riskReward
+                      .minimum
                   )}:1`}
                 />
 
                 <Metric
                   label="Score Adjustment"
                   value={`${signed(
-                    analysis.riskReward
+                    analysis
+                      .riskReward
                       .scoreAdjustment
                   )} pts`}
                 />
               </div>
 
-              <p style={styles.paragraph}>
+              <p
+                style={styles.paragraph}
+              >
                 {
-                  analysis.riskReward
+                  analysis
+                    .riskReward
                     .explanation
                 }
               </p>
             </section>
 
             <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
                 TRADE STRUCTURE
               </h2>
 
-              <div style={styles.metrics}>
+              <div
+                style={styles.metrics}
+              >
                 <Metric
                   label="Current Price"
-                  value={money(market.priceUSD)}
+                  value={money(
+                    market.priceUSD
+                  )}
                 />
 
                 <Metric
                   label="Entry Low"
                   value={money(
-                    analysis.entryZone.low
+                    analysis
+                      .entryZone.low
                   )}
                 />
 
                 <Metric
                   label="Entry High"
                   value={money(
-                    analysis.entryZone.high
+                    analysis
+                      .entryZone.high
                   )}
                 />
 
@@ -772,11 +977,17 @@ export default function Home() {
             </section>
 
             <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
                 MARKET STRUCTURE
               </h2>
 
-              <div style={styles.metrics}>
+              <div
+                style={styles.metrics}
+              >
                 <Metric
                   label="RSI"
                   value={number(
@@ -837,21 +1048,33 @@ export default function Home() {
             </section>
 
             <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
                 THEO SUMMARY
               </h2>
 
-              <p style={styles.paragraph}>
+              <p
+                style={styles.paragraph}
+              >
                 {data.summary}
               </p>
             </section>
 
             <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
                 THEO FRAMEWORK
               </h2>
 
-              <ul style={styles.framework}>
+              <ul
+                style={styles.framework}
+              >
                 {data.framework.map(
                   (item, index) => (
                     <li key={index}>
@@ -868,17 +1091,24 @@ export default function Home() {
   );
 }
 
-function Metric({ label, value, color }) {
+function Metric({
+  label,
+  value,
+  color,
+}) {
   return (
     <div style={styles.metric}>
-      <div style={styles.metricLabel}>
+      <div
+        style={styles.metricLabel}
+      >
         {label}
       </div>
 
       <div
         style={{
           ...styles.metricValue,
-          color: color || "#f8fafc",
+          color:
+            color || "#f8fafc",
         }}
       >
         {value}
