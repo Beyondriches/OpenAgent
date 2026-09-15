@@ -55,55 +55,55 @@ function sma(values, period) {
   return average(slice);
 }
 
-function calculateRSI(values, period = 14) {
-  if (values.length < 2) return 50;
+function calculateRSI(prices, period = 14) {
+  if (prices.length < 2) return 50;
 
-  const usablePeriod = Math.min(period, values.length - 1);
-  const slice = values.slice(-(usablePeriod + 1));
-
-  let gains = 0;
-  let losses = 0;
-
-  for (let i = 1; i < slice.length; i++) {
-    const change = slice[i] - slice[i - 1];
-
-    if (change > 0) gains += change;
-    if (change < 0) losses += Math.abs(change);
+  const changes = [];
+  for (let i = 1; i < prices.length; i++) {
+    changes.push(prices[i] - prices[i - 1]);
   }
 
-  const avgGain = gains / usablePeriod;
-  const avgLoss = losses / usablePeriod;
+  const recent = changes.slice(-Math.min(period, changes.length));
 
-  if (avgLoss === 0) return 100;
+  const gains = recent.map((change) => (change > 0 ? change : 0));
+  const losses = recent.map((change) => (change < 0 ? Math.abs(change) : 0));
+
+  const avgGain = average(gains);
+  const avgLoss = average(losses);
+
+  if (avgLoss === 0) return avgGain > 0 ? 100 : 50;
 
   const rs = avgGain / avgLoss;
   return 100 - 100 / (1 + rs);
 }
 
-function volatility(values, period = 14) {
-  if (values.length < 2) return 0;
+function standardDeviation(values) {
+  if (!values.length) return 0;
 
-  const slice = values.slice(-(period + 1));
-  const returns = [];
-
-  for (let i = 1; i < slice.length; i++) {
-    returns.push(
-      ((slice[i] - slice[i - 1]) / slice[i - 1]) * 100
-    );
-  }
-
-  const mean = average(returns);
-
+  const mean = average(values);
   const variance =
-    returns.reduce(
-      (sum, value) => sum + Math.pow(value - mean, 2),
-      0
-    ) / returns.length;
+    values.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) /
+    values.length;
 
   return Math.sqrt(variance);
 }
 
-function percentageChange(current, previous) {
+function calculateVolatility(prices, period = 14) {
+  if (prices.length < 2) return 0;
+
+  const returns = [];
+
+  for (let i = 1; i < prices.length; i++) {
+    if (prices[i - 1] > 0) {
+      returns.push((prices[i] - prices[i - 1]) / prices[i - 1]);
+    }
+  }
+
+  const recent = returns.slice(-Math.min(period, returns.length));
+  return standardDeviation(recent) * 100;
+}
+
+function percentChange(current, previous) {
   if (!previous) return 0;
   return ((current - previous) / previous) * 100;
 }
@@ -112,12 +112,59 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function round(value, decimals = 2) {
+  return Number(Number(value).toFixed(decimals));
+}
+
+function getSignal(score) {
+  if (score >= 80) return "STRONG BUY";
+  if (score >= 65) return "BUY";
+  if (score >= 45) return "WAIT";
+  if (score >= 30) return "SELL";
+  return "STRONG SELL";
+}
+
+function getConfidence(score) {
+  const distanceFromNeutral = Math.abs(score - 50);
+
+  if (distanceFromNeutral >= 30) return "High";
+  if (distanceFromNeutral >= 15) return "Medium";
+  return "Low";
+}
+
+function calculateRiskReward(entry, invalidation, target) {
+  const risk = Math.abs(entry - invalidation);
+  const reward = Math.abs(target - entry);
+
+  if (!risk) return 0;
+
+  return reward / risk;
+}
+
+function calculateEntryProgress(price, low, high) {
+  if (high <= low) return 100;
+
+  if (price < low) {
+    const distance = low - price;
+    const width = high - low;
+    return clamp(100 - (distance / width) * 100, 0, 100);
+  }
+
+  if (price > high) {
+    const distance = price - high;
+    const width = high - low;
+    return clamp(100 - (distance / width) * 100, 0, 100);
+  }
+
+  return 100;
+}
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "Theo Crypto Agent",
-    version: "0.9",
-    engine: "Multi-Timeframe Intelligence",
+    version: "1.0",
+    engine: "Theo Decision Engine",
     endpoint: "/api/analyze",
     marketData: "CoinGecko",
   });
@@ -131,32 +178,37 @@ export async function POST(request) {
       .trim()
       .toUpperCase();
 
-    const requestedMode = String(body?.timeframe || "swing")
+    const timeframe = String(body?.timeframe || "swing")
       .trim()
       .toLowerCase();
 
-    const timeframe = MODES[requestedMode]
-      ? requestedMode
-      : "swing";
-
-    const config = MODES[timeframe];
     const coinId = COINS[symbol];
+    const config = MODES[timeframe];
 
     if (!coinId) {
       return NextResponse.json(
         {
           ok: false,
-          error:
-            "Unsupported symbol. Try BTC, ETH, SOL, XRP, ADA, DOGE, AVAX or LINK.",
+          error: `Unsupported asset symbol: ${symbol}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!config) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Unsupported analysis mode: ${timeframe}`,
         },
         { status: 400 }
       );
     }
 
     const marketUrl =
-      `https://api.coingecko.com/api/v3/coins/markets` +
+      "https://api.coingecko.com/api/v3/coins/markets" +
       `?vs_currency=usd&ids=${coinId}` +
-      `&price_change_percentage=24h,7d,30d`;
+      "&price_change_percentage=24h,7d,30d";
 
     const historyUrl =
       `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart` +
@@ -164,15 +216,11 @@ export async function POST(request) {
 
     const [marketResponse, historyResponse] = await Promise.all([
       fetch(marketUrl, {
-        headers: {
-          accept: "application/json",
-        },
+        headers: { accept: "application/json" },
         cache: "no-store",
       }),
       fetch(historyUrl, {
-        headers: {
-          accept: "application/json",
-        },
+        headers: { accept: "application/json" },
         cache: "no-store",
       }),
     ]);
@@ -198,173 +246,234 @@ export async function POST(request) {
       throw new Error("No market data returned.");
     }
 
-    const prices = Array.isArray(historyData?.prices)
+    const historicalPrices = Array.isArray(historyData?.prices)
       ? historyData.prices
           .map((item) => Number(item?.[1]))
-          .filter(Number.isFinite)
+          .filter((value) => Number.isFinite(value))
       : [];
 
-    if (prices.length < 5) {
-      throw new Error("Not enough historical price data.");
+    if (historicalPrices.length < 2) {
+      throw new Error("Insufficient historical price data.");
     }
 
-    const price = Number(coin.current_price);
-    const fastSMA = sma(prices, config.fastPeriod);
-    const slowSMA = sma(prices, config.slowPeriod);
-    const rsi = calculateRSI(prices, config.rsiPeriod);
-    const vol = volatility(prices, 14);
+    const currentPrice = Number(coin.current_price);
 
-    const recentWindow = prices.slice(-Math.min(30, prices.length));
+    const fastSMA = sma(historicalPrices, config.fastPeriod);
+    const slowSMA = sma(historicalPrices, config.slowPeriod);
+    const rsi = calculateRSI(historicalPrices, config.rsiPeriod);
+    const volatility = calculateVolatility(historicalPrices, 14);
+
+    const recentWindow = historicalPrices.slice(-Math.min(14, historicalPrices.length));
     const recentHigh = Math.max(...recentWindow);
     const recentLow = Math.min(...recentWindow);
 
-    const periodStart = prices[0];
-    const periodChange = percentageChange(price, periodStart);
+    const sevenDaysAgo =
+      historicalPrices[Math.max(0, historicalPrices.length - 8)];
 
-    let trend = "Neutral";
+    const thirtyDaysAgo =
+      historicalPrices[Math.max(0, historicalPrices.length - 31)];
 
-    if (price > fastSMA && fastSMA > slowSMA) {
-      trend = "Bullish";
-    } else if (price < fastSMA && fastSMA < slowSMA) {
-      trend = "Bearish";
-    }
-
-    let momentum = "Neutral";
-
-    if (rsi >= 60) momentum = "Positive";
-    if (rsi <= 40) momentum = "Negative";
-
-    let risk = "Low";
-
-    if (vol >= 5) {
-      risk = "High";
-    } else if (vol >= 3) {
-      risk = "Medium";
-    }
+    const change7d = percentChange(currentPrice, sevenDaysAgo);
+    const change30d = percentChange(currentPrice, thirtyDaysAgo);
 
     let score = 50;
 
-    if (trend === "Bullish") score += 18;
-    if (trend === "Bearish") score -= 18;
+    // Trend component
+    if (currentPrice > fastSMA) score += 7;
+    else score -= 7;
 
-    if (momentum === "Positive") score += 12;
-    if (momentum === "Negative") score -= 12;
+    if (fastSMA > slowSMA) score += 10;
+    else score -= 10;
 
-    if (rsi > 70) score -= 8;
-    if (rsi < 30) score += 5;
+    // Momentum component
+    if (rsi >= 55 && rsi <= 70) score += 8;
+    else if (rsi > 70) score -= 5;
+    else if (rsi < 30) score += 5;
+    else if (rsi < 45) score -= 6;
 
-    if (periodChange > 10) score += 5;
-    if (periodChange < -10) score -= 5;
+    // Medium-term confirmation
+    if (change7d > 2) score += 5;
+    else if (change7d < -2) score -= 5;
 
-    if (risk === "High") score -= 8;
-    if (risk === "Medium") score -= 3;
+    if (change30d > 5) score += 5;
+    else if (change30d < -5) score -= 5;
+
+    // Volatility penalty
+    if (volatility > 6) score -= 8;
+    else if (volatility > 4) score -= 4;
+    else if (volatility < 2.5) score += 3;
 
     score = Math.round(clamp(score, 0, 100));
 
-    let verdict = "WAIT";
+    const trend =
+      currentPrice > fastSMA && fastSMA > slowSMA
+        ? "Bullish"
+        : currentPrice < fastSMA && fastSMA < slowSMA
+        ? "Bearish"
+        : "Neutral";
 
-    if (score >= 70) {
-      verdict = "BUY BIAS";
-    } else if (score <= 30) {
-      verdict = "DEFENSIVE";
+    const momentum =
+      rsi >= 60
+        ? "Positive"
+        : rsi <= 40
+        ? "Negative"
+        : "Neutral";
+
+    const risk =
+      volatility >= 6
+        ? "High"
+        : volatility >= 3
+        ? "Medium"
+        : "Low";
+
+    const signal = getSignal(score);
+    const confidence = getConfidence(score);
+
+    let entryLow = currentPrice * (1 - config.entryPct);
+    let entryHigh = currentPrice * (1 + config.entryPct);
+
+    if (trend === "Bullish") {
+      entryLow = Math.min(entryLow, fastSMA);
+      entryHigh = Math.max(currentPrice, fastSMA);
     }
 
-    const entryLow = price * (1 - config.entryPct);
-    const entryHigh = price * (1 + config.entryPct * 0.35);
+    if (trend === "Bearish") {
+      entryLow = Math.min(currentPrice, fastSMA);
+      entryHigh = Math.max(entryHigh, fastSMA);
+    }
 
     const invalidation =
       entryLow * (1 - config.invalidationPct);
 
     const target1 =
-      price * (1 + config.target1Pct);
+      currentPrice * (1 + config.target1Pct);
 
     const target2 =
-      price * (1 + config.target2Pct);
+      currentPrice * (1 + config.target2Pct);
 
-    const range24h =
-      coin.high_24h && coin.low_24h
-        ? percentageChange(coin.high_24h, coin.low_24h)
-        : 0;
+    const entryMidpoint = (entryLow + entryHigh) / 2;
+
+    const rr1 = calculateRiskReward(
+      entryMidpoint,
+      invalidation,
+      target1
+    );
+
+    const rr2 = calculateRiskReward(
+      entryMidpoint,
+      invalidation,
+      target2
+    );
+
+    const entryProgress = calculateEntryProgress(
+      currentPrice,
+      entryLow,
+      entryHigh
+    );
+
+    let decisionReason = "";
+
+    if (signal === "STRONG BUY") {
+      decisionReason =
+        "Multiple trend and momentum conditions are aligned strongly to the upside.";
+    } else if (signal === "BUY") {
+      decisionReason =
+        "Bullish conditions outweigh bearish conditions, but risk controls remain important.";
+    } else if (signal === "WAIT") {
+      decisionReason =
+        "The indicators are mixed or insufficiently aligned for a high-conviction entry.";
+    } else if (signal === "SELL") {
+      decisionReason =
+        "Bearish conditions currently outweigh bullish conditions.";
+    } else {
+      decisionReason =
+        "Multiple indicators are aligned negatively and downside conditions dominate.";
+    }
 
     return NextResponse.json({
       ok: true,
-      version: "0.9",
-      engine: "Multi-Timeframe Intelligence",
       symbol,
       timeframe,
       live: true,
       source: "CoinGecko",
 
-      timeframeProfile: {
-        historicalDays: config.days,
-        fastSMA: config.fastPeriod,
-        slowSMA: config.slowPeriod,
-        rsiPeriod: config.rsiPeriod,
-      },
-
       market: {
         name: coin.name,
-        priceUSD: price,
-        change24h: coin.price_change_percentage_24h,
+        priceUSD: round(currentPrice),
+        change24h: round(
+          coin.price_change_percentage_24h ?? 0
+        ),
         volume24hUSD: coin.total_volume,
         marketCapUSD: coin.market_cap,
         marketCapRank: coin.market_cap_rank,
       },
 
       analysis: {
-        verdict,
+        verdict: signal,
         score,
+        confidence,
+        reason: decisionReason,
         trend,
         momentum,
         risk,
 
-        rsi: Number(rsi.toFixed(1)),
-        fastSMA: Number(fastSMA.toFixed(2)),
-        slowSMA: Number(slowSMA.toFixed(2)),
-        volatility14d: Number(vol.toFixed(2)),
-
-        recentHigh: Number(recentHigh.toFixed(2)),
-        recentLow: Number(recentLow.toFixed(2)),
-        periodChange: Number(periodChange.toFixed(2)),
-        range24h: Number(range24h.toFixed(2)),
+        entryProgress: round(entryProgress, 0),
 
         entryZone: {
-          low: Number(entryLow.toFixed(2)),
-          high: Number(entryHigh.toFixed(2)),
+          low: round(entryLow),
+          high: round(entryHigh),
         },
 
-        invalidation: Number(invalidation.toFixed(2)),
+        invalidation: round(invalidation),
 
         targets: [
-          Number(target1.toFixed(2)),
-          Number(target2.toFixed(2)),
+          round(target1),
+          round(target2),
         ],
+
+        riskReward: {
+          target1: round(rr1),
+          target2: round(rr2),
+        },
+      },
+
+      technicals: {
+        rsi: round(rsi, 1),
+        fastSMA: round(fastSMA),
+        slowSMA: round(slowSMA),
+        volatility14d: round(volatility),
+        recentHigh: round(recentHigh),
+        recentLow: round(recentLow),
+        change7d: round(change7d),
+        change30d: round(change30d),
       },
 
       summary:
-        `${symbol} ${timeframe} analysis: ${verdict}. ` +
-        `Theo score ${score}/100. ` +
-        `Trend is ${trend.toLowerCase()}, ` +
-        `momentum is ${momentum.toLowerCase()}, ` +
-        `RSI ${rsi.toFixed(1)}, with ${risk.toLowerCase()} volatility risk.`,
+        `${symbol} ${timeframe} analysis: ${signal}. ` +
+        `Theo score ${score}/100 with ${confidence.toLowerCase()} confidence. ` +
+        `${decisionReason}`,
 
       framework: [
-        `Timeframe engine: ${config.days}-day historical window.`,
-        `Fast/slow averages: SMA ${config.fastPeriod} / SMA ${config.slowPeriod}.`,
-        `RSI period: ${config.rsiPeriod}.`,
+        `Signal confidence: ${confidence}.`,
+        `Risk/reward to Target 1: ${round(rr1)}:1.`,
+        `Risk/reward to Target 2: ${round(rr2)}:1.`,
+        `Entry-zone proximity: ${round(entryProgress, 0)}%.`,
+        `Trend: ${trend}.`,
+        `Momentum: ${momentum}.`,
+        `RSI: ${round(rsi, 1)}.`,
         "Treat the entry zone as context, not a guaranteed entry.",
-        "Invalidation and targets are mechanical risk references, not predictions.",
+        "Invalidation defines where the trade thesis should be reconsidered.",
         "Keep long-term core capital separate from speculative trading capital.",
         "Avoid FOMO entries after sharp price moves.",
       ],
     });
   } catch (error) {
-    console.error("Theo v0.9 analysis error:", error);
+    console.error("Theo v1.0 analysis error:", error);
 
     return NextResponse.json(
       {
         ok: false,
-        error: "Unable to complete multi-timeframe market analysis.",
+        error: "Unable to complete Theo Decision Engine analysis.",
       },
       { status: 500 }
     );
