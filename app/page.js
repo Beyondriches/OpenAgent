@@ -2,756 +2,759 @@
 
 import { useState } from "react";
 
+const MODES = [
+  { value: "long-term", label: "Long Term" },
+  { value: "swing", label: "Swing Trading" },
+  { value: "day", label: "Day Trading" },
+];
+
+const COINS = [
+  "ETH",
+  "BTC",
+  "SOL",
+  "XRP",
+  "ADA",
+  "DOGE",
+  "AVAX",
+  "LINK",
+];
+
+function money(value) {
+  if (value === null || value === undefined) return "—";
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: value < 10 ? 4 : 2,
+  }).format(value);
+}
+
+function number(value, decimals = 2) {
+  if (value === null || value === undefined) return "—";
+  return Number(value).toFixed(decimals);
+}
+
+function signed(value) {
+  if (value === null || value === undefined) return "—";
+  return `${value >= 0 ? "+" : ""}${value}`;
+}
+
+function outlookColor(outlook) {
+  if (outlook === "STRONGLY BULLISH") return "#22c55e";
+  if (outlook === "BULLISH") return "#4ade80";
+  if (outlook === "NEUTRAL") return "#eab308";
+  if (outlook === "BEARISH") return "#fb7185";
+  if (outlook === "STRONGLY BEARISH") return "#ef4444";
+  return "#e5e7eb";
+}
+
+function actionColor(action) {
+  if (action === "BUY NOW") return "#22c55e";
+  if (action === "ACCUMULATE") return "#4ade80";
+  if (action === "WAIT FOR PULLBACK") return "#f59e0b";
+  if (action === "WAIT") return "#facc15";
+  if (action === "HOLD / WAIT") return "#facc15";
+  if (action === "AVOID") return "#ef4444";
+  return "#e5e7eb";
+}
+
+function entryColor(quality) {
+  if (quality === "Discounted") return "#22c55e";
+  if (quality === "Attractive") return "#4ade80";
+  if (quality === "Fair") return "#7dd3fc";
+  if (quality === "Stretched") return "#f59e0b";
+  if (quality === "Chasing") return "#ef4444";
+  return "#e5e7eb";
+}
+
+function rrColor(quality) {
+  if (quality === "Strong") return "#22c55e";
+  if (quality === "Good") return "#4ade80";
+  if (quality === "Acceptable") return "#60a5fa";
+  if (quality === "Mixed") return "#facc15";
+  if (quality === "Weak") return "#fb923c";
+  if (quality === "Poor") return "#ef4444";
+  return "#e5e7eb";
+}
+
+const styles = {
+  page: {
+    minHeight: "100vh",
+    background:
+      "radial-gradient(circle at top, #172554 0%, #09090b 38%, #020617 100%)",
+    color: "#f8fafc",
+    fontFamily:
+      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+    padding: "40px 18px 80px",
+  },
+
+  container: {
+    maxWidth: "980px",
+    margin: "0 auto",
+  },
+
+  header: {
+    marginBottom: "28px",
+  },
+
+  badge: {
+    display: "inline-block",
+    padding: "6px 10px",
+    borderRadius: "999px",
+    background: "rgba(59,130,246,0.15)",
+    border: "1px solid rgba(96,165,250,0.35)",
+    color: "#93c5fd",
+    fontSize: "12px",
+    fontWeight: 800,
+    letterSpacing: "0.08em",
+    marginBottom: "14px",
+  },
+
+  title: {
+    fontSize: "clamp(34px, 7vw, 58px)",
+    lineHeight: 1,
+    margin: "0 0 12px",
+    letterSpacing: "-0.04em",
+  },
+
+  subtitle: {
+    margin: 0,
+    color: "#94a3b8",
+    maxWidth: "760px",
+    fontSize: "16px",
+    lineHeight: 1.6,
+  },
+
+  controls: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "12px",
+    marginBottom: "18px",
+  },
+
+  control: {
+    background: "rgba(15,23,42,0.82)",
+    border: "1px solid #334155",
+    borderRadius: "14px",
+    padding: "14px",
+  },
+
+  label: {
+    display: "block",
+    color: "#94a3b8",
+    fontSize: "12px",
+    fontWeight: 800,
+    letterSpacing: "0.08em",
+    marginBottom: "8px",
+  },
+
+  select: {
+    width: "100%",
+    background: "#020617",
+    color: "#f8fafc",
+    border: "1px solid #475569",
+    borderRadius: "10px",
+    padding: "11px 12px",
+    fontSize: "15px",
+  },
+
+  button: {
+    width: "100%",
+    border: "none",
+    borderRadius: "14px",
+    padding: "15px 18px",
+    background: "#2563eb",
+    color: "white",
+    fontWeight: 900,
+    fontSize: "15px",
+    cursor: "pointer",
+    marginBottom: "24px",
+  },
+
+  error: {
+    padding: "14px 16px",
+    borderRadius: "14px",
+    background: "rgba(127,29,29,0.3)",
+    border: "1px solid rgba(248,113,113,0.4)",
+    color: "#fecaca",
+    marginBottom: "20px",
+  },
+
+  card: {
+    background: "rgba(15,23,42,0.78)",
+    border: "1px solid rgba(71,85,105,0.65)",
+    borderRadius: "20px",
+    padding: "22px",
+    marginBottom: "16px",
+    backdropFilter: "blur(12px)",
+  },
+
+  sectionTitle: {
+    margin: "0 0 16px",
+    color: "#94a3b8",
+    fontSize: "12px",
+    fontWeight: 900,
+    letterSpacing: "0.12em",
+  },
+
+  decisionGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+    gap: "14px",
+  },
+
+  decisionBox: {
+    background: "#020617",
+    border: "1px solid #334155",
+    borderRadius: "16px",
+    padding: "18px",
+  },
+
+  decisionLabel: {
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: 900,
+    letterSpacing: "0.12em",
+    marginBottom: "9px",
+  },
+
+  decisionValue: {
+    fontSize: "25px",
+    fontWeight: 950,
+    lineHeight: 1.1,
+    marginBottom: "10px",
+  },
+
+  reason: {
+    color: "#cbd5e1",
+    lineHeight: 1.55,
+    fontSize: "14px",
+  },
+
+  metrics: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+    gap: "10px",
+  },
+
+  metric: {
+    background: "rgba(2,6,23,0.65)",
+    border: "1px solid #334155",
+    borderRadius: "13px",
+    padding: "14px",
+  },
+
+  metricLabel: {
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: 800,
+    marginBottom: "7px",
+  },
+
+  metricValue: {
+    fontSize: "17px",
+    fontWeight: 850,
+  },
+
+  paragraph: {
+    color: "#cbd5e1",
+    lineHeight: 1.65,
+    margin: "14px 0 0",
+  },
+
+  framework: {
+    color: "#cbd5e1",
+    lineHeight: 1.7,
+    paddingLeft: "20px",
+    marginBottom: 0,
+  },
+};
+
 export default function Home() {
   const [symbol, setSymbol] = useState("ETH");
   const [timeframe, setTimeframe] = useState("swing");
-  const [result, setResult] = useState(null);
+
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   async function analyze() {
-    setLoading(true);
-    setError("");
-    setResult(null);
-
     try {
+      setLoading(true);
+      setError("");
+
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ symbol, timeframe }),
+        body: JSON.stringify({
+          symbol,
+          timeframe,
+        }),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || "Analysis failed.");
+      if (!response.ok || !result.ok) {
+        throw new Error(
+          result?.error || "Unable to analyze market."
+        );
       }
 
-      setResult(data);
+      setData(result);
     } catch (err) {
       setError(err.message || "Something went wrong.");
+      setData(null);
     } finally {
       setLoading(false);
     }
   }
 
-  function money(value) {
-    if (value === null || value === undefined) return "—";
-
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: value < 10 ? 4 : 2,
-    }).format(value);
-  }
-
-  function compactMoney(value) {
-    if (value === null || value === undefined) return "—";
-
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      notation: "compact",
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
-
-  function number(value, digits = 2) {
-    if (value === null || value === undefined) return "—";
-    return Number(value).toFixed(digits);
-  }
-
-  function signed(value, suffix = "") {
-    if (value === null || value === undefined) return "—";
-
-    return `${Number(value) >= 0 ? "+" : ""}${number(value)}${suffix}`;
-  }
-
-  function signalColor(signal) {
-    if (signal === "STRONG BUY") return "#20e38a";
-    if (signal === "BUY") return "#54e39b";
-    if (signal === "WAIT") return "#ffc857";
-    if (signal === "SELL") return "#ff8a65";
-    if (signal === "STRONG SELL") return "#ff5263";
-    return "#ffffff";
-  }
-
-  function rrColor(quality) {
-    if (quality === "Strong") return "#20e38a";
-    if (quality === "Good") return "#54e39b";
-    if (quality === "Acceptable") return "#7dd3fc";
-    if (quality === "Mixed") return "#ffc857";
-    if (quality === "Weak") return "#ff8a65";
-    if (quality === "Poor") return "#ff5263";
-    return "#ffffff";
-  }
-
-  function entryColor(quality) {
-    if (quality === "Discounted") return "#20e38a";
-    if (quality === "Attractive") return "#54e39b";
-    if (quality === "Fair") return "#7dd3fc";
-    if (quality === "Stretched") return "#ffc857";
-    if (quality === "Chasing") return "#ff5263";
-    return "#ffffff";
-  }
-
-  const styles = {
-    page: {
-      minHeight: "100vh",
-      background: "#080b12",
-      color: "#f5f7fb",
-      fontFamily: "Arial, sans-serif",
-      padding: "48px 20px",
-    },
-
-    card: {
-      maxWidth: 820,
-      margin: "0 auto",
-      background: "#111722",
-      border: "1px solid #273044",
-      borderRadius: 18,
-      padding: 28,
-      boxShadow: "0 18px 60px rgba(0,0,0,.35)",
-    },
-
-    badge: {
-      display: "inline-block",
-      padding: "6px 10px",
-      border: "1px solid #36415a",
-      borderRadius: 999,
-      color: "#aebbd2",
-      fontSize: 13,
-    },
-
-    subtitle: {
-      color: "#aebbd2",
-      lineHeight: 1.5,
-    },
-
-    label: {
-      display: "block",
-      marginTop: 18,
-      marginBottom: 8,
-      fontWeight: 700,
-    },
-
-    input: {
-      width: "100%",
-      boxSizing: "border-box",
-      padding: 13,
-      borderRadius: 10,
-      border: "1px solid #36415a",
-      background: "#0b1019",
-      color: "#fff",
-      fontSize: 16,
-    },
-
-    button: {
-      width: "100%",
-      marginTop: 14,
-      padding: 13,
-      border: 0,
-      borderRadius: 10,
-      fontWeight: 800,
-      cursor: "pointer",
-      fontSize: 15,
-    },
-
-    result: {
-      marginTop: 18,
-      background: "#0b1019",
-      border: "1px solid #273044",
-      borderRadius: 14,
-      padding: 18,
-    },
-
-    topRow: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-      gap: 12,
-    },
-
-    live: {
-      color: "#42e695",
-      fontWeight: 800,
-      fontSize: 12,
-    },
-
-    price: {
-      fontSize: 34,
-      fontWeight: 900,
-      marginTop: 22,
-      marginBottom: 4,
-    },
-
-    section: {
-      marginTop: 16,
-      padding: 16,
-      border: "1px solid #273044",
-      borderRadius: 12,
-      background: "#101725",
-    },
-
-    sectionTitle: {
-      color: "#8fb3df",
-      fontSize: 12,
-      letterSpacing: 1.4,
-      marginBottom: 14,
-    },
-
-    grid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
-      gap: 10,
-      marginTop: 16,
-    },
-
-    metric: {
-      background: "#111827",
-      border: "1px solid #273044",
-      borderRadius: 10,
-      padding: 12,
-      minHeight: 54,
-    },
-
-    metricLabel: {
-      color: "#94a3b8",
-      fontSize: 12,
-      marginBottom: 6,
-    },
-
-    reason: {
-      marginTop: 16,
-      padding: 14,
-      background: "#0b1019",
-      border: "1px solid #273044",
-      borderRadius: 10,
-      lineHeight: 1.55,
-    },
-
-    progressTrack: {
-      height: 12,
-      marginTop: 10,
-      background: "#20293a",
-      borderRadius: 999,
-      overflow: "hidden",
-    },
-
-    summary: {
-      marginTop: 18,
-      lineHeight: 1.55,
-    },
-
-    list: {
-      lineHeight: 1.65,
-      color: "#dbe4f0",
-    },
-
-    error: {
-      marginTop: 18,
-      background: "#3f1515",
-      border: "1px solid #7f1d1d",
-      borderRadius: 10,
-      padding: 14,
-      color: "#fecaca",
-    },
-  };
-
-  const market = result?.market;
-  const analysis = result?.analysis;
-  const technicals = result?.technicals;
-  const rr = analysis?.riskReward;
-  const entry = analysis?.entryQuality;
-
-  const progress = Math.max(
-    0,
-    Math.min(100, Number(analysis?.entryProgress || 0))
-  );
+  const analysis = data?.analysis;
+  const market = data?.market;
+  const technicals = data?.technicals;
 
   return (
     <main style={styles.page}>
-      <section style={styles.card}>
-        <span style={styles.badge}>OpenAgent v1.2</span>
+      <div style={styles.container}>
+        <header style={styles.header}>
+          <div style={styles.badge}>
+            OPENAGENT v1.3
+          </div>
 
-        <h1>Theo Crypto Agent</h1>
+          <h1 style={styles.title}>
+            Theo Crypto Agent
+          </h1>
 
-        <p style={styles.subtitle}>
-          Risk-aware multi-timeframe crypto intelligence with
-          entry-quality analysis for long-term, swing and day trading.
-        </p>
+          <p style={styles.subtitle}>
+            Risk-aware multi-timeframe crypto intelligence
+            that separates market outlook from immediate
+            trading action.
+          </p>
+        </header>
 
-        <label style={styles.label}>Asset symbol</label>
+        <section style={styles.controls}>
+          <div style={styles.control}>
+            <label style={styles.label}>
+              ASSET
+            </label>
 
-        <input
-          style={styles.input}
-          value={symbol}
-          onChange={(e) =>
-            setSymbol(e.target.value.toUpperCase())
-          }
-          placeholder="ETH"
-        />
+            <select
+              style={styles.select}
+              value={symbol}
+              onChange={(e) =>
+                setSymbol(e.target.value)
+              }
+            >
+              {COINS.map((coin) => (
+                <option key={coin} value={coin}>
+                  {coin}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <label style={styles.label}>Mode</label>
+          <div style={styles.control}>
+            <label style={styles.label}>
+              ANALYSIS MODE
+            </label>
 
-        <select
-          style={styles.input}
-          value={timeframe}
-          onChange={(e) => setTimeframe(e.target.value)}
-        >
-          <option value="swing">Swing</option>
-          <option value="day">Day Trading</option>
-          <option value="long-term">Long Term</option>
-        </select>
+            <select
+              style={styles.select}
+              value={timeframe}
+              onChange={(e) =>
+                setTimeframe(e.target.value)
+              }
+            >
+              {MODES.map((mode) => (
+                <option
+                  key={mode.value}
+                  value={mode.value}
+                >
+                  {mode.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </section>
 
         <button
-          style={styles.button}
+          style={{
+            ...styles.button,
+            opacity: loading ? 0.65 : 1,
+          }}
           onClick={analyze}
           disabled={loading}
         >
-          {loading ? "Analyzing..." : "Analyze"}
+          {loading
+            ? "THEO IS ANALYZING..."
+            : "ANALYZE MARKET"}
         </button>
 
-        {error && <div style={styles.error}>{error}</div>}
+        {error && (
+          <div style={styles.error}>
+            {error}
+          </div>
+        )}
 
-        {result && (
-          <div style={styles.result}>
-            <div style={styles.topRow}>
-              <div>
-                <h2 style={{ margin: 0 }}>{result.symbol}</h2>
-                <div style={styles.subtitle}>{market?.name}</div>
+        {data && analysis && (
+          <>
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>
+                THEO OUTLOOK + ACTION ENGINE
+              </h2>
+
+              <div style={styles.decisionGrid}>
+                <div style={styles.decisionBox}>
+                  <div style={styles.decisionLabel}>
+                    MARKET OUTLOOK
+                  </div>
+
+                  <div
+                    style={{
+                      ...styles.decisionValue,
+                      color: outlookColor(
+                        analysis.outlook
+                      ),
+                    }}
+                  >
+                    {analysis.outlook}
+                  </div>
+
+                  <div style={styles.reason}>
+                    {analysis.outlookReason}
+                  </div>
+                </div>
+
+                <div style={styles.decisionBox}>
+                  <div style={styles.decisionLabel}>
+                    ACTION NOW
+                  </div>
+
+                  <div
+                    style={{
+                      ...styles.decisionValue,
+                      color: actionColor(
+                        analysis.action
+                      ),
+                    }}
+                  >
+                    {analysis.action}
+                  </div>
+
+                  <div style={styles.reason}>
+                    {analysis.actionReason}
+                  </div>
+                </div>
               </div>
+            </section>
 
-              <div style={styles.live}>● LIVE</div>
-            </div>
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>
+                DECISION QUALITY
+              </h2>
 
-            <div style={styles.price}>
-              {money(market?.priceUSD)}
-            </div>
-
-            <div
-              style={{
-                fontWeight: 800,
-                color:
-                  market?.change24h >= 0
-                    ? "#42e695"
-                    : "#ff6577",
-              }}
-            >
-              {market?.change24h >= 0 ? "+" : ""}
-              {number(market?.change24h)}% (24h)
-            </div>
-
-            <div style={styles.grid}>
-              <Metric
-                label="Market Cap"
-                value={compactMoney(market?.marketCapUSD)}
-                styles={styles}
-              />
-
-              <Metric
-                label="24h Volume"
-                value={compactMoney(market?.volume24hUSD)}
-                styles={styles}
-              />
-
-              <Metric
-                label="Market Rank"
-                value={
-                  market?.marketCapRank
-                    ? `#${market.marketCapRank}`
-                    : "—"
-                }
-                styles={styles}
-              />
-
-              <Metric
-                label="Mode"
-                value={result.timeframe}
-                styles={styles}
-              />
-            </div>
-
-            <div style={styles.section}>
-              <div style={styles.sectionTitle}>
-                THEO ENTRY QUALITY DECISION ENGINE
-              </div>
-
-              <div
-                style={{
-                  fontSize: 30,
-                  fontWeight: 900,
-                  color: signalColor(analysis?.verdict),
-                }}
-              >
-                {analysis?.verdict}
-              </div>
-
-              <div style={styles.grid}>
+              <div style={styles.metrics}>
                 <Metric
                   label="Technical Score"
-                  value={`${analysis?.technicalScore}/100`}
-                  styles={styles}
+                  value={`${analysis.technicalScore}/100`}
                 />
 
                 <Metric
-                  label="Final Theo Score"
-                  value={`${analysis?.score}/100`}
-                  styles={styles}
+                  label="Action Score"
+                  value={`${analysis.finalScore}/100`}
                 />
 
                 <Metric
                   label="Confidence"
-                  value={analysis?.confidence}
-                  styles={styles}
+                  value={analysis.confidence}
                 />
 
                 <Metric
                   label="Trend"
-                  value={analysis?.trend}
-                  styles={styles}
+                  value={analysis.trend}
                 />
 
                 <Metric
                   label="Momentum"
-                  value={analysis?.momentum}
-                  styles={styles}
+                  value={analysis.momentum}
                 />
 
                 <Metric
                   label="Risk"
-                  value={analysis?.risk}
-                  styles={styles}
+                  value={analysis.risk}
                 />
               </div>
+            </section>
 
-              <div style={styles.reason}>
-                <strong>Why Theo chose this:</strong>
-
-                <div style={{ marginTop: 6 }}>
-                  {analysis?.reason}
-                </div>
-              </div>
-            </div>
-
-            <div style={styles.section}>
-              <div style={styles.sectionTitle}>
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>
                 ENTRY QUALITY
-              </div>
+              </h2>
 
-              <div
-                style={{
-                  fontSize: 25,
-                  fontWeight: 900,
-                  color: entryColor(entry?.quality),
-                }}
-              >
-                {entry?.quality || "—"}
-              </div>
+              <div style={styles.metrics}>
+                <Metric
+                  label="Quality"
+                  value={
+                    analysis.entryQuality.quality
+                  }
+                  color={entryColor(
+                    analysis.entryQuality.quality
+                  )}
+                />
 
-              <div style={styles.grid}>
                 <Metric
                   label="Entry Adjustment"
-                  value={
-                    entry?.scoreAdjustment !== undefined
-                      ? `${
-                          entry.scoreAdjustment >= 0 ? "+" : ""
-                        }${entry.scoreAdjustment}`
-                      : "—"
-                  }
-                  styles={styles}
-                  valueColor={entryColor(entry?.quality)}
+                  value={`${signed(
+                    analysis.entryQuality
+                      .scoreAdjustment
+                  )} pts`}
                 />
 
                 <Metric
                   label="Price vs Fast SMA"
-                  value={
-                    entry?.distanceFromFastSMA !== undefined
-                      ? signed(
-                          entry.distanceFromFastSMA,
-                          "%"
-                        )
-                      : "—"
-                  }
-                  styles={styles}
+                  value={`${signed(
+                    analysis.entryQuality
+                      .distanceFromFastSMA
+                  )}%`}
                 />
 
                 <Metric
                   label="Recent Range Position"
-                  value={
-                    entry?.recentRangePosition !== undefined
-                      ? `${number(
-                          entry.recentRangePosition,
-                          0
-                        )}%`
-                      : "—"
-                  }
-                  styles={styles}
+                  value={`${analysis.entryQuality.recentRangePosition}%`}
                 />
 
                 <Metric
                   label="Entry-Zone Proximity"
-                  value={`${number(
-                    analysis?.entryProgress,
-                    0
-                  )}%`}
-                  styles={styles}
+                  value={`${analysis.entryProgress}%`}
                 />
               </div>
 
-              <div style={styles.reason}>
-                <strong>Entry assessment:</strong>
+              <p style={styles.paragraph}>
+                {
+                  analysis.entryQuality
+                    .explanation
+                }
+              </p>
+            </section>
 
-                <div style={{ marginTop: 6 }}>
-                  {entry?.explanation}
-                </div>
-              </div>
-            </div>
-
-            <div style={styles.section}>
-              <div style={styles.sectionTitle}>
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>
                 RISK / REWARD GATE
-              </div>
+              </h2>
 
-              <div style={styles.grid}>
+              <div style={styles.metrics}>
                 <Metric
-                  label="R:R Quality"
-                  value={rr?.quality}
-                  styles={styles}
-                  valueColor={rrColor(rr?.quality)}
-                />
-
-                <Metric
-                  label="R:R Adjustment"
+                  label="Quality"
                   value={
-                    rr?.scoreAdjustment !== undefined
-                      ? `${
-                          rr.scoreAdjustment >= 0 ? "+" : ""
-                        }${rr.scoreAdjustment}`
-                      : "—"
+                    analysis.riskReward.quality
                   }
-                  styles={styles}
-                />
-
-                <Metric
-                  label="Minimum R:R"
-                  value={
-                    rr?.minimum !== undefined
-                      ? `${number(rr.minimum)}:1`
-                      : "—"
-                  }
-                  styles={styles}
+                  color={rrColor(
+                    analysis.riskReward.quality
+                  )}
                 />
 
                 <Metric
                   label="R:R Target 1"
-                  value={
-                    rr?.target1 !== undefined
-                      ? `${number(rr.target1)}:1`
-                      : "—"
-                  }
-                  styles={styles}
+                  value={`${number(
+                    analysis.riskReward.target1
+                  )}:1`}
                 />
 
                 <Metric
                   label="R:R Target 2"
-                  value={
-                    rr?.target2 !== undefined
-                      ? `${number(rr.target2)}:1`
-                      : "—"
-                  }
-                  styles={styles}
+                  value={`${number(
+                    analysis.riskReward.target2
+                  )}:1`}
+                />
+
+                <Metric
+                  label="Minimum"
+                  value={`${number(
+                    analysis.riskReward.minimum
+                  )}:1`}
+                />
+
+                <Metric
+                  label="Score Adjustment"
+                  value={`${signed(
+                    analysis.riskReward
+                      .scoreAdjustment
+                  )} pts`}
                 />
               </div>
 
-              <div style={styles.reason}>
-                <strong>Trade economics:</strong>
+              <p style={styles.paragraph}>
+                {
+                  analysis.riskReward
+                    .explanation
+                }
+              </p>
+            </section>
 
-                <div style={{ marginTop: 6 }}>
-                  {rr?.explanation}
-                </div>
-              </div>
-            </div>
-
-            <div style={styles.section}>
-              <div style={styles.sectionTitle}>
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>
                 TRADE STRUCTURE
-              </div>
+              </h2>
 
-              <div style={styles.grid}>
+              <div style={styles.metrics}>
+                <Metric
+                  label="Current Price"
+                  value={money(
+                    market.priceUSD
+                  )}
+                />
+
                 <Metric
                   label="Entry Low"
-                  value={money(analysis?.entryZone?.low)}
-                  styles={styles}
+                  value={money(
+                    analysis.entryZone.low
+                  )}
                 />
 
                 <Metric
                   label="Entry High"
-                  value={money(analysis?.entryZone?.high)}
-                  styles={styles}
+                  value={money(
+                    analysis.entryZone.high
+                  )}
                 />
 
                 <Metric
                   label="Invalidation"
-                  value={money(analysis?.invalidation)}
-                  styles={styles}
+                  value={money(
+                    analysis.invalidation
+                  )}
                 />
 
                 <Metric
                   label="Target 1"
-                  value={money(analysis?.targets?.[0])}
-                  styles={styles}
+                  value={money(
+                    analysis.targets[0]
+                  )}
                 />
 
                 <Metric
                   label="Target 2"
-                  value={money(analysis?.targets?.[1])}
-                  styles={styles}
+                  value={money(
+                    analysis.targets[1]
+                  )}
                 />
               </div>
+            </section>
 
-              <div style={{ marginTop: 18 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    color: "#94a3b8",
-                    fontSize: 12,
-                  }}
-                >
-                  <span>Entry-zone proximity</span>
-                  <span>{number(progress, 0)}%</span>
-                </div>
-
-                <div style={styles.progressTrack}>
-                  <div
-                    style={{
-                      height: "100%",
-                      width: `${progress}%`,
-                      background: signalColor(
-                        analysis?.verdict
-                      ),
-                      borderRadius: 999,
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div style={styles.section}>
-              <div style={styles.sectionTitle}>
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>
                 MARKET STRUCTURE
-              </div>
+              </h2>
 
-              <div style={styles.grid}>
+              <div style={styles.metrics}>
                 <Metric
                   label="RSI"
-                  value={number(technicals?.rsi, 1)}
-                  styles={styles}
+                  value={number(
+                    technicals.rsi,
+                    1
+                  )}
                 />
 
                 <Metric
                   label="Fast SMA"
-                  value={money(technicals?.fastSMA)}
-                  styles={styles}
+                  value={money(
+                    technicals.fastSMA
+                  )}
                 />
 
                 <Metric
                   label="Slow SMA"
-                  value={money(technicals?.slowSMA)}
-                  styles={styles}
+                  value={money(
+                    technicals.slowSMA
+                  )}
                 />
 
                 <Metric
-                  label="14d Volatility"
+                  label="14D Volatility"
                   value={`${number(
-                    technicals?.volatility14d
+                    technicals.volatility14d
                   )}%`}
-                  styles={styles}
                 />
 
                 <Metric
                   label="Recent High"
-                  value={money(technicals?.recentHigh)}
-                  styles={styles}
+                  value={money(
+                    technicals.recentHigh
+                  )}
                 />
 
                 <Metric
                   label="Recent Low"
-                  value={money(technicals?.recentLow)}
-                  styles={styles}
+                  value={money(
+                    technicals.recentLow
+                  )}
                 />
 
                 <Metric
-                  label="7d Change"
+                  label="7D Change"
                   value={`${signed(
-                    technicals?.change7d,
-                    "%"
-                  )}`}
-                  styles={styles}
+                    technicals.change7d
+                  )}%`}
                 />
 
                 <Metric
-                  label="30d Change"
+                  label="30D Change"
                   value={`${signed(
-                    technicals?.change30d,
-                    "%"
-                  )}`}
-                  styles={styles}
+                    technicals.change30d
+                  )}%`}
                 />
               </div>
-            </div>
+            </section>
 
-            <p style={styles.summary}>
-              {result.summary}
-            </p>
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>
+                THEO SUMMARY
+              </h2>
 
-            <ul style={styles.list}>
-              {(result.framework || []).map(
-                (item, index) => (
-                  <li key={index}>{item}</li>
-                )
-              )}
-            </ul>
+              <p style={styles.paragraph}>
+                {data.summary}
+              </p>
+            </section>
 
-            <div
-              style={{
-                marginTop: 18,
-                paddingTop: 14,
-                borderTop: "1px solid #273044",
-                color: "#64748b",
-                fontSize: 12,
-              }}
-            >
-              Data source: {result.source} • Theo Entry
-              Quality Engine v1.2
-            </div>
-          </div>
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>
+                THEO FRAMEWORK
+              </h2>
+
+              <ul style={styles.framework}>
+                {data.framework.map(
+                  (item, index) => (
+                    <li key={index}>
+                      {item}
+                    </li>
+                  )
+                )}
+              </ul>
+            </section>
+          </>
         )}
-      </section>
+      </div>
     </main>
   );
 }
 
-function Metric({
-  label,
-  value,
-  styles,
-  valueColor,
-}) {
+function Metric({ label, value, color }) {
   return (
     <div style={styles.metric}>
-      <div style={styles.metricLabel}>{label}</div>
+      <div style={styles.metricLabel}>
+        {label}
+      </div>
 
-      <strong
+      <div
         style={{
-          color: valueColor || "#f5f7fb",
+          ...styles.metricValue,
+          color: color || "#f8fafc",
         }}
       >
-        {value ?? "—"}
-      </strong>
+        {value}
+      </div>
     </div>
   );
 }

@@ -52,18 +52,12 @@ const MODES = {
 function average(values) {
   if (!values.length) return 0;
 
-  return (
-    values.reduce((sum, value) => sum + value, 0) /
-    values.length
-  );
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 function sma(values, period) {
   if (!values.length) return 0;
-
-  return average(
-    values.slice(-Math.min(period, values.length))
-  );
+  return average(values.slice(-Math.min(period, values.length)));
 }
 
 function calculateRSI(prices, period = 14) {
@@ -75,17 +69,10 @@ function calculateRSI(prices, period = 14) {
     changes.push(prices[i] - prices[i - 1]);
   }
 
-  const recent = changes.slice(
-    -Math.min(period, changes.length)
-  );
+  const recent = changes.slice(-Math.min(period, changes.length));
 
-  const gains = recent.map((x) =>
-    x > 0 ? x : 0
-  );
-
-  const losses = recent.map((x) =>
-    x < 0 ? Math.abs(x) : 0
-  );
+  const gains = recent.map((x) => (x > 0 ? x : 0));
+  const losses = recent.map((x) => (x < 0 ? Math.abs(x) : 0));
 
   const avgGain = average(gains);
   const avgLoss = average(losses);
@@ -106,8 +93,7 @@ function standardDeviation(values) {
 
   const variance =
     values.reduce(
-      (sum, value) =>
-        sum + Math.pow(value - mean, 2),
+      (sum, value) => sum + Math.pow(value - mean, 2),
       0
     ) / values.length;
 
@@ -122,24 +108,20 @@ function calculateVolatility(prices, period = 14) {
   for (let i = 1; i < prices.length; i++) {
     if (prices[i - 1] > 0) {
       returns.push(
-        (prices[i] - prices[i - 1]) /
-          prices[i - 1]
+        (prices[i] - prices[i - 1]) / prices[i - 1]
       );
     }
   }
 
   return (
     standardDeviation(
-      returns.slice(
-        -Math.min(period, returns.length)
-      )
+      returns.slice(-Math.min(period, returns.length))
     ) * 100
   );
 }
 
 function percentChange(current, previous) {
   if (!previous) return 0;
-
   return ((current - previous) / previous) * 100;
 }
 
@@ -151,29 +133,7 @@ function round(value, decimals = 2) {
   return Number(Number(value).toFixed(decimals));
 }
 
-function getSignal(score) {
-  if (score >= 80) return "STRONG BUY";
-  if (score >= 65) return "BUY";
-  if (score >= 45) return "WAIT";
-  if (score >= 30) return "SELL";
-
-  return "STRONG SELL";
-}
-
-function getConfidence(score) {
-  const distance = Math.abs(score - 50);
-
-  if (distance >= 30) return "High";
-  if (distance >= 15) return "Medium";
-
-  return "Low";
-}
-
-function calculateRiskReward(
-  entry,
-  invalidation,
-  target
-) {
+function calculateRiskReward(entry, invalidation, target) {
   const risk = Math.abs(entry - invalidation);
   const reward = Math.abs(target - entry);
 
@@ -182,11 +142,7 @@ function calculateRiskReward(
   return reward / risk;
 }
 
-function calculateEntryProgress(
-  price,
-  low,
-  high
-) {
+function calculateEntryProgress(price, low, high) {
   if (high <= low) return 100;
 
   if (price >= low && price <= high) {
@@ -210,11 +166,38 @@ function calculateEntryProgress(
   );
 }
 
-function evaluateRiskReward(
-  rr1,
-  rr2,
-  minimumRR
-) {
+function getConfidence(score) {
+  const distance = Math.abs(score - 50);
+
+  if (distance >= 30) return "High";
+  if (distance >= 15) return "Medium";
+
+  return "Low";
+}
+
+/*
+  OUTLOOK ENGINE
+
+  Outlook deliberately uses the underlying technical score,
+  not the final action score.
+
+  This means:
+  "The asset is bullish"
+  and
+  "Do not buy at this price"
+  can both be true.
+*/
+
+function getOutlook(technicalScore) {
+  if (technicalScore >= 80) return "STRONGLY BULLISH";
+  if (technicalScore >= 65) return "BULLISH";
+  if (technicalScore >= 45) return "NEUTRAL";
+  if (technicalScore >= 30) return "BEARISH";
+
+  return "STRONGLY BEARISH";
+}
+
+function evaluateRiskReward(rr1, rr2, minimumRR) {
   let adjustment = 0;
   let quality = "Acceptable";
   let explanation =
@@ -235,10 +218,7 @@ function evaluateRiskReward(
     quality = "Mixed";
     explanation =
       "The first target has weak risk/reward, although the second target is acceptable.";
-  } else if (
-    rr1 >= 1.5 &&
-    rr2 >= 2
-  ) {
+  } else if (rr1 >= 1.5 && rr2 >= 2) {
     adjustment = 8;
     quality = "Strong";
     explanation =
@@ -257,18 +237,6 @@ function evaluateRiskReward(
   };
 }
 
-/*
-  v1.2 ENTRY QUALITY ENGINE
-
-  Measures:
-  1. Price distance from fast SMA
-  2. Position inside recent range
-  3. RSI stretch
-
-  The purpose is to distinguish:
-  "bullish asset" from "good entry right now".
-*/
-
 function evaluateEntryQuality({
   price,
   fastSMA,
@@ -282,8 +250,7 @@ function evaluateEntryQuality({
       ? ((price - fastSMA) / fastSMA) * 100
       : 0;
 
-  const range =
-    recentHigh - recentLow;
+  const range = recentHigh - recentLow;
 
   const rangePosition =
     range > 0
@@ -296,10 +263,6 @@ function evaluateEntryQuality({
 
   let adjustment = 0;
 
-  /*
-    Moving-average distance.
-  */
-
   if (distanceFromFastSMA <= -3) {
     adjustment += 6;
   } else if (distanceFromFastSMA <= -1) {
@@ -309,11 +272,6 @@ function evaluateEntryQuality({
   } else if (distanceFromFastSMA >= 3) {
     adjustment -= 5;
   }
-
-  /*
-    Recent-range position.
-    Lower in range generally improves entry quality.
-  */
 
   if (rangePosition <= 25) {
     adjustment += 5;
@@ -325,10 +283,6 @@ function evaluateEntryQuality({
     adjustment -= 4;
   }
 
-  /*
-    RSI stretch.
-  */
-
   if (rsi >= 75) {
     adjustment -= 8;
   } else if (rsi >= 68) {
@@ -337,21 +291,12 @@ function evaluateEntryQuality({
     adjustment += 4;
   }
 
-  /*
-    Day trades are more sensitive to chasing.
-  */
-
   if (
     timeframe === "day" &&
     distanceFromFastSMA >= 2
   ) {
     adjustment -= 3;
   }
-
-  /*
-    Long-term mode is more tolerant of
-    short-term price extension.
-  */
 
   if (
     timeframe === "long-term" &&
@@ -393,13 +338,216 @@ function evaluateEntryQuality({
   };
 }
 
+/*
+  v1.3 ACTION ENGINE
+
+  Outlook describes the market.
+
+  Action answers:
+  "What should I do at this price?"
+
+  Actions are intentionally timeframe-aware.
+*/
+
+function determineAction({
+  timeframe,
+  outlook,
+  finalScore,
+  rrEvaluation,
+  entryQuality,
+  rr2,
+  minimumRR,
+}) {
+  const bullish =
+    outlook === "BULLISH" ||
+    outlook === "STRONGLY BULLISH";
+
+  const bearish =
+    outlook === "BEARISH" ||
+    outlook === "STRONGLY BEARISH";
+
+  /*
+    Hard risk/reward rejection.
+  */
+
+  if (rr2 < minimumRR) {
+    return {
+      action: bullish ? "WAIT" : "AVOID",
+      reason:
+        `Risk/reward does not meet Theo's ${minimumRR}:1 minimum requirement for this timeframe.`,
+    };
+  }
+
+  /*
+    Do not chase stretched markets.
+  */
+
+  if (entryQuality.quality === "Chasing") {
+    return {
+      action: bullish ? "WAIT FOR PULLBACK" : "AVOID",
+      reason:
+        "The current price is excessively extended relative to recent structure.",
+    };
+  }
+
+  /*
+    LONG TERM
+  */
+
+  if (timeframe === "long-term") {
+    if (
+      bullish &&
+      entryQuality.quality === "Stretched"
+    ) {
+      return {
+        action: "WAIT FOR PULLBACK",
+        reason:
+          "The long-term outlook is bullish, but the current price is stretched enough to reduce immediate entry quality.",
+      };
+    }
+
+    if (
+      bullish &&
+      (entryQuality.quality === "Discounted" ||
+        entryQuality.quality === "Attractive")
+    ) {
+      return {
+        action: "ACCUMULATE",
+        reason:
+          "The long-term outlook is bullish and current price positioning is favorable for gradual accumulation.",
+      };
+    }
+
+    if (
+      bullish &&
+      entryQuality.quality === "Fair" &&
+      finalScore >= 65
+    ) {
+      return {
+        action: "ACCUMULATE",
+        reason:
+          "The long-term structure is constructive and the current entry is reasonable for gradual accumulation.",
+      };
+    }
+
+    if (bearish) {
+      return {
+        action: "AVOID",
+        reason:
+          "The long-term structure is bearish, so Theo does not favor adding fresh long exposure.",
+      };
+    }
+
+    return {
+      action: "HOLD / WAIT",
+      reason:
+        "Long-term conditions are not sufficiently aligned for aggressive accumulation.",
+    };
+  }
+
+  /*
+    SWING
+  */
+
+  if (timeframe === "swing") {
+    if (
+      bullish &&
+      finalScore >= 65 &&
+      entryQuality.quality !== "Stretched"
+    ) {
+      return {
+        action: "BUY NOW",
+        reason:
+          "Swing structure, trade economics and entry quality are sufficiently aligned for an actionable setup.",
+      };
+    }
+
+    if (
+      bullish &&
+      entryQuality.quality === "Stretched"
+    ) {
+      return {
+        action: "WAIT FOR PULLBACK",
+        reason:
+          "The swing outlook is constructive, but current price extension makes patience preferable to chasing.",
+      };
+    }
+
+    if (bearish) {
+      return {
+        action: "AVOID",
+        reason:
+          "Swing structure is bearish and does not support a fresh long entry.",
+      };
+    }
+
+    return {
+      action: "WAIT",
+      reason:
+        "The swing setup lacks enough combined confirmation for a fresh entry.",
+    };
+  }
+
+  /*
+    DAY TRADING
+  */
+
+  if (timeframe === "day") {
+    if (
+      bullish &&
+      finalScore >= 70 &&
+      (entryQuality.quality === "Attractive" ||
+        entryQuality.quality === "Discounted" ||
+        entryQuality.quality === "Fair") &&
+      rrEvaluation.quality !== "Mixed"
+    ) {
+      return {
+        action: "BUY NOW",
+        reason:
+          "Short-term structure, entry quality and risk/reward are sufficiently aligned for an actionable long setup.",
+      };
+    }
+
+    if (
+      bullish &&
+      (entryQuality.quality === "Stretched" ||
+        entryQuality.quality === "Chasing")
+    ) {
+      return {
+        action: "WAIT FOR PULLBACK",
+        reason:
+          "Short-term conditions may be constructive, but the current price is too extended for a disciplined entry.",
+      };
+    }
+
+    if (bearish) {
+      return {
+        action: "AVOID",
+        reason:
+          "Short-term structure is bearish and does not support a fresh long trade.",
+      };
+    }
+
+    return {
+      action: "WAIT",
+      reason:
+        "Day-trading conditions do not provide enough confirmation for an immediate entry.",
+    };
+  }
+
+  return {
+    action: "WAIT",
+    reason:
+      "Conditions are not sufficiently aligned for an immediate action.",
+  };
+}
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "Theo Crypto Agent",
-    version: "1.2",
-    engine:
-      "Theo Risk-Aware Entry Quality Engine",
+    version: "1.3",
+    engine: "Theo Outlook + Action Engine",
     endpoint: "/api/analyze",
     marketData: "CoinGecko",
   });
@@ -409,15 +557,11 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    const symbol = String(
-      body?.symbol || "ETH"
-    )
+    const symbol = String(body?.symbol || "ETH")
       .trim()
       .toUpperCase();
 
-    const timeframe = String(
-      body?.timeframe || "swing"
-    )
+    const timeframe = String(body?.timeframe || "swing")
       .trim()
       .toLowerCase();
 
@@ -453,24 +597,22 @@ export async function POST(request) {
       `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart` +
       `?vs_currency=usd&days=${config.days}&interval=daily`;
 
-    const [
-      marketResponse,
-      historyResponse,
-    ] = await Promise.all([
-      fetch(marketUrl, {
-        headers: {
-          accept: "application/json",
-        },
-        cache: "no-store",
-      }),
+    const [marketResponse, historyResponse] =
+      await Promise.all([
+        fetch(marketUrl, {
+          headers: {
+            accept: "application/json",
+          },
+          cache: "no-store",
+        }),
 
-      fetch(historyUrl, {
-        headers: {
-          accept: "application/json",
-        },
-        cache: "no-store",
-      }),
-    ]);
+        fetch(historyUrl, {
+          headers: {
+            accept: "application/json",
+          },
+          cache: "no-store",
+        }),
+      ]);
 
     if (!marketResponse.ok) {
       throw new Error(
@@ -484,11 +626,8 @@ export async function POST(request) {
       );
     }
 
-    const marketData =
-      await marketResponse.json();
-
-    const historyData =
-      await historyResponse.json();
+    const marketData = await marketResponse.json();
+    const historyData = await historyResponse.json();
 
     const coin = marketData?.[0];
 
@@ -499,12 +638,8 @@ export async function POST(request) {
     const historicalPrices =
       Array.isArray(historyData?.prices)
         ? historyData.prices
-            .map((item) =>
-              Number(item?.[1])
-            )
-            .filter((value) =>
-              Number.isFinite(value)
-            )
+            .map((item) => Number(item?.[1]))
+            .filter((value) => Number.isFinite(value))
         : [];
 
     if (historicalPrices.length < 2) {
@@ -513,8 +648,7 @@ export async function POST(request) {
       );
     }
 
-    const currentPrice =
-      Number(coin.current_price);
+    const currentPrice = Number(coin.current_price);
 
     const fastSMA = sma(
       historicalPrices,
@@ -531,57 +665,41 @@ export async function POST(request) {
       config.rsiPeriod
     );
 
-    const volatility =
-      calculateVolatility(
-        historicalPrices,
-        14
-      );
+    const volatility = calculateVolatility(
+      historicalPrices,
+      14
+    );
 
-    const recentWindow =
-      historicalPrices.slice(
-        -Math.min(
-          14,
-          historicalPrices.length
-        )
-      );
+    const recentWindow = historicalPrices.slice(
+      -Math.min(14, historicalPrices.length)
+    );
 
-    const recentHigh =
-      Math.max(...recentWindow);
-
-    const recentLow =
-      Math.min(...recentWindow);
+    const recentHigh = Math.max(...recentWindow);
+    const recentLow = Math.min(...recentWindow);
 
     const sevenDaysAgo =
       historicalPrices[
-        Math.max(
-          0,
-          historicalPrices.length - 8
-        )
+        Math.max(0, historicalPrices.length - 8)
       ];
 
     const thirtyDaysAgo =
       historicalPrices[
-        Math.max(
-          0,
-          historicalPrices.length - 31
-        )
+        Math.max(0, historicalPrices.length - 31)
       ];
 
-    const change7d =
-      percentChange(
-        currentPrice,
-        sevenDaysAgo
-      );
+    const change7d = percentChange(
+      currentPrice,
+      sevenDaysAgo
+    );
 
-    const change30d =
-      percentChange(
-        currentPrice,
-        thirtyDaysAgo
-      );
+    const change30d = percentChange(
+      currentPrice,
+      thirtyDaysAgo
+    );
 
     /*
       PHASE 1
-      TECHNICAL SCORE
+      TECHNICAL OUTLOOK SCORE
     */
 
     let technicalScore = 50;
@@ -628,10 +746,11 @@ export async function POST(request) {
       technicalScore += 3;
     }
 
-    technicalScore =
-      Math.round(
-        clamp(technicalScore, 0, 100)
-      );
+    technicalScore = Math.round(
+      clamp(technicalScore, 0, 100)
+    );
+
+    const outlook = getOutlook(technicalScore);
 
     const trend =
       currentPrice > fastSMA &&
@@ -662,182 +781,106 @@ export async function POST(request) {
     */
 
     let entryLow =
-      currentPrice *
-      (1 - config.entryPct);
+      currentPrice * (1 - config.entryPct);
 
     let entryHigh =
-      currentPrice *
-      (1 + config.entryPct);
+      currentPrice * (1 + config.entryPct);
 
     if (trend === "Bullish") {
-      entryLow =
-        Math.min(entryLow, fastSMA);
-
-      entryHigh =
-        Math.max(currentPrice, fastSMA);
+      entryLow = Math.min(entryLow, fastSMA);
+      entryHigh = Math.max(currentPrice, fastSMA);
     }
 
     if (trend === "Bearish") {
-      entryLow =
-        Math.min(currentPrice, fastSMA);
-
-      entryHigh =
-        Math.max(entryHigh, fastSMA);
+      entryLow = Math.min(currentPrice, fastSMA);
+      entryHigh = Math.max(entryHigh, fastSMA);
     }
 
     const invalidation =
-      entryLow *
-      (1 - config.invalidationPct);
+      entryLow * (1 - config.invalidationPct);
 
     const target1 =
-      currentPrice *
-      (1 + config.target1Pct);
+      currentPrice * (1 + config.target1Pct);
 
     const target2 =
-      currentPrice *
-      (1 + config.target2Pct);
+      currentPrice * (1 + config.target2Pct);
 
     const entryMidpoint =
       (entryLow + entryHigh) / 2;
 
-    const rr1 =
-      calculateRiskReward(
-        entryMidpoint,
-        invalidation,
-        target1
-      );
+    const rr1 = calculateRiskReward(
+      entryMidpoint,
+      invalidation,
+      target1
+    );
 
-    const rr2 =
-      calculateRiskReward(
-        entryMidpoint,
-        invalidation,
-        target2
-      );
+    const rr2 = calculateRiskReward(
+      entryMidpoint,
+      invalidation,
+      target2
+    );
 
     /*
       PHASE 3
       RISK / REWARD
     */
 
-    const rrEvaluation =
-      evaluateRiskReward(
-        rr1,
-        rr2,
-        config.minRR
-      );
+    const rrEvaluation = evaluateRiskReward(
+      rr1,
+      rr2,
+      config.minRR
+    );
 
     /*
       PHASE 4
       ENTRY QUALITY
     */
 
-    const entryQuality =
-      evaluateEntryQuality({
-        price: currentPrice,
-        fastSMA,
-        recentHigh,
-        recentLow,
-        rsi,
-        timeframe,
-      });
+    const entryQuality = evaluateEntryQuality({
+      price: currentPrice,
+      fastSMA,
+      recentHigh,
+      recentLow,
+      rsi,
+      timeframe,
+    });
 
     /*
       PHASE 5
-      FINAL SCORE
+      FINAL ACTION SCORE
     */
 
-    let score =
+    let finalScore =
       technicalScore +
       rrEvaluation.adjustment +
       entryQuality.adjustment;
 
-    score =
-      Math.round(
-        clamp(score, 0, 100)
-      );
-
-    let signal = getSignal(score);
+    finalScore = Math.round(
+      clamp(finalScore, 0, 100)
+    );
 
     /*
-      Hard R:R guardrail.
+      PHASE 6
+      ACTION
     */
 
-    if (
-      (signal === "BUY" ||
-        signal === "STRONG BUY") &&
-      rr2 < config.minRR
-    ) {
-      signal = "WAIT";
-    }
+    const actionDecision = determineAction({
+      timeframe,
+      outlook,
+      finalScore,
+      rrEvaluation,
+      entryQuality,
+      rr2,
+      minimumRR: config.minRR,
+    });
 
-    /*
-      Never issue STRONG BUY while
-      current price is being classified
-      as a chasing entry.
-    */
+    const confidence = getConfidence(technicalScore);
 
-    if (
-      signal === "STRONG BUY" &&
-      entryQuality.quality === "Chasing"
-    ) {
-      signal = "BUY";
-    }
-
-    /*
-      A severely stretched entry cannot
-      receive a fresh BUY recommendation.
-    */
-
-    if (
-      (signal === "BUY" ||
-        signal === "STRONG BUY") &&
-      entryQuality.adjustment <= -10
-    ) {
-      signal = "WAIT";
-    }
-
-    const confidence =
-      getConfidence(score);
-
-    const entryProgress =
-      calculateEntryProgress(
-        currentPrice,
-        entryLow,
-        entryHigh
-      );
-
-    let decisionReason = "";
-
-    if (signal === "STRONG BUY") {
-      decisionReason =
-        "Technical conditions, trade economics and current entry quality are strongly aligned.";
-    } else if (signal === "BUY") {
-      decisionReason =
-        "The market structure is constructive, risk/reward is acceptable and the current entry is not excessively stretched.";
-    } else if (
-      signal === "WAIT" &&
-      entryQuality.adjustment <= -10
-    ) {
-      decisionReason =
-        "The broader setup may be constructive, but the current price is too extended for Theo to chase.";
-    } else if (
-      signal === "WAIT" &&
-      rr2 < config.minRR
-    ) {
-      decisionReason =
-        `Technical conditions may be constructive, but Target 2 offers only ${round(
-          rr2
-        )}:1 versus Theo's ${config.minRR}:1 minimum risk/reward requirement.`;
-    } else if (signal === "WAIT") {
-      decisionReason =
-        "The combined technical, risk/reward and entry-quality evidence is not strong enough for a high-conviction entry.";
-    } else if (signal === "SELL") {
-      decisionReason =
-        "Bearish conditions outweigh bullish evidence and the setup does not justify fresh long exposure.";
-    } else {
-      decisionReason =
-        "Multiple conditions are aligned negatively and downside evidence dominates.";
-    }
+    const entryProgress = calculateEntryProgress(
+      currentPrice,
+      entryLow,
+      entryHigh
+    );
 
     return NextResponse.json({
       ok: true,
@@ -845,54 +888,43 @@ export async function POST(request) {
       timeframe,
       live: true,
       source: "CoinGecko",
-      version: "1.2",
+      version: "1.3",
 
       market: {
         name: coin.name,
+        priceUSD: round(currentPrice),
 
-        priceUSD:
-          round(currentPrice),
+        change24h: round(
+          coin.price_change_percentage_24h ?? 0
+        ),
 
-        change24h:
-          round(
-            coin.price_change_percentage_24h ??
-              0
-          ),
-
-        volume24hUSD:
-          coin.total_volume,
-
-        marketCapUSD:
-          coin.market_cap,
-
-        marketCapRank:
-          coin.market_cap_rank,
+        volume24hUSD: coin.total_volume,
+        marketCapUSD: coin.market_cap,
+        marketCapRank: coin.market_cap_rank,
       },
 
       analysis: {
-        verdict: signal,
-
-        score,
+        outlook,
+        action: actionDecision.action,
 
         technicalScore,
+        finalScore,
 
         confidence,
 
-        reason:
-          decisionReason,
+        outlookReason:
+          `Theo's ${timeframe} market outlook is ${outlook.toLowerCase()} based on trend, momentum, price structure and volatility.`,
+
+        actionReason: actionDecision.reason,
 
         trend,
-
         momentum,
-
         risk,
 
-        entryProgress:
-          round(entryProgress, 0),
+        entryProgress: round(entryProgress, 0),
 
         entryQuality: {
-          quality:
-            entryQuality.quality,
+          quality: entryQuality.quality,
 
           scoreAdjustment:
             entryQuality.adjustment,
@@ -900,16 +932,14 @@ export async function POST(request) {
           explanation:
             entryQuality.explanation,
 
-          distanceFromFastSMA:
-            round(
-              entryQuality.distanceFromFastSMA
-            ),
+          distanceFromFastSMA: round(
+            entryQuality.distanceFromFastSMA
+          ),
 
-          recentRangePosition:
-            round(
-              entryQuality.rangePosition,
-              0
-            ),
+          recentRangePosition: round(
+            entryQuality.rangePosition,
+            0
+          ),
         },
 
         entryZone: {
@@ -917,8 +947,7 @@ export async function POST(request) {
           high: round(entryHigh),
         },
 
-        invalidation:
-          round(invalidation),
+        invalidation: round(invalidation),
 
         targets: [
           round(target1),
@@ -927,11 +956,8 @@ export async function POST(request) {
 
         riskReward: {
           target1: round(rr1),
-
           target2: round(rr2),
-
-          minimum:
-            config.minRR,
+          minimum: config.minRR,
 
           quality:
             rrEvaluation.quality,
@@ -945,14 +971,9 @@ export async function POST(request) {
       },
 
       technicals: {
-        rsi:
-          round(rsi, 1),
-
-        fastSMA:
-          round(fastSMA),
-
-        slowSMA:
-          round(slowSMA),
+        rsi: round(rsi, 1),
+        fastSMA: round(fastSMA),
+        slowSMA: round(slowSMA),
 
         volatility14d:
           round(volatility),
@@ -971,33 +992,34 @@ export async function POST(request) {
       },
 
       summary:
-        `${symbol} ${timeframe} analysis: ${signal}. ` +
+        `${symbol} ${timeframe} outlook: ${outlook}. ` +
+        `Action: ${actionDecision.action}. ` +
         `Technical score ${technicalScore}/100. ` +
-        `R:R adjustment ${
+        `Risk/reward adjustment ${
           rrEvaluation.adjustment >= 0 ? "+" : ""
         }${rrEvaluation.adjustment}. ` +
         `Entry adjustment ${
           entryQuality.adjustment >= 0 ? "+" : ""
         }${entryQuality.adjustment}. ` +
-        `Final Theo score ${score}/100. ` +
-        decisionReason,
+        `Action score ${finalScore}/100. ` +
+        actionDecision.reason,
 
       framework: [
-        `Technical score: ${technicalScore}/100.`,
+        `Market outlook: ${outlook}.`,
+
+        `Recommended action: ${actionDecision.action}.`,
+
+        `Technical outlook score: ${technicalScore}/100.`,
 
         `Risk/reward adjustment: ${
-          rrEvaluation.adjustment >= 0
-            ? "+"
-            : ""
+          rrEvaluation.adjustment >= 0 ? "+" : ""
         }${rrEvaluation.adjustment} points.`,
 
         `Entry-quality adjustment: ${
-          entryQuality.adjustment >= 0
-            ? "+"
-            : ""
+          entryQuality.adjustment >= 0 ? "+" : ""
         }${entryQuality.adjustment} points.`,
 
-        `Final Theo score: ${score}/100.`,
+        `Final action score: ${finalScore}/100.`,
 
         `Entry quality: ${entryQuality.quality}.`,
 
@@ -1024,9 +1046,11 @@ export async function POST(request) {
 
         `RSI: ${round(rsi, 1)}.`,
 
-        "A bullish asset can still be a poor entry if price is excessively extended.",
+        "Market outlook and immediate action are deliberately evaluated separately.",
 
-        "Theo favors patience over chasing when entry quality deteriorates.",
+        "A bullish market can still justify waiting when entry quality is poor.",
+
+        "Theo favors patience over chasing stretched prices.",
 
         "Invalidation defines where the trade thesis should be reconsidered.",
 
@@ -1037,7 +1061,7 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error(
-      "Theo v1.2 analysis error:",
+      "Theo v1.3 analysis error:",
       error
     );
 
@@ -1045,7 +1069,7 @@ export async function POST(request) {
       {
         ok: false,
         error:
-          "Unable to complete Theo Entry Quality analysis.",
+          "Unable to complete Theo Outlook + Action analysis.",
       },
       { status: 500 }
     );
