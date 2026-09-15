@@ -584,11 +584,7 @@ function getSetupMultiplier({
   rrQuality,
   entryQuality,
 }) {
-  // TEMPORARY v1.5 RISK ENGINE TEST
-return {
-  multiplier: 2.0,
-  setupStrength: "Exceptional",
-};/*
+/*
    * v1.5 ADAPTIVE RISK ENGINE
    *
    * Higher risk must be earned by alignment.
@@ -696,7 +692,7 @@ function calculateTradingPosition({
   entryPrice,
   invalidation,
 }) {
-  if (false) { // TEMPORARY v1.5 TEST: bypass BUY NOW gate
+  if (action !== "BUY NOW") {
     return {
       enabled: false,
       setupStrength: "No Trade",
