@@ -1059,6 +1059,40 @@ export async function POST(request) {
       technicalScore -= 5;
     }
 
+        /*
+      MULTI-HORIZON CONFIRMATION — v1.6
+      Confirms whether short and broader price direction agree.
+    */
+
+    const shortTermBullish =
+      currentPrice > fastSMA &&
+      change7d > 0;
+
+    const broaderBullish =
+      fastSMA > slowSMA &&
+      change30d > 0;
+
+    const shortTermBearish =
+      currentPrice < fastSMA &&
+      change7d < 0;
+
+    const broaderBearish =
+      fastSMA < slowSMA &&
+      change30d < 0;
+
+    let timeframeConfirmation = "Mixed";
+
+    if (shortTermBullish && broaderBullish) {
+      timeframeConfirmation = "Bullish";
+      technicalScore += 6;
+    } else if (
+      shortTermBearish &&
+      broaderBearish
+    ) {
+      timeframeConfirmation = "Bearish";
+      technicalScore -= 6;
+    }
+    
     if (volatility > 6) {
       technicalScore -= 8;
     } else if (volatility > 4) {
@@ -1296,6 +1330,7 @@ export async function POST(request) {
           actionDecision.reason,
 
         trend,
+        timeframeConfirmation,
         momentum,
         risk,
 
