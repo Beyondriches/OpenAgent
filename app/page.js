@@ -238,7 +238,7 @@ export default function Home() {
   return (
     <main style={styles.page}>
       <section style={styles.card}>
-        <span style={styles.badge}>OpenAgent v0.8</span>
+        <span style={styles.badge}>OpenAgent v0.9</span>
 
         <h1>Theo Crypto Agent</h1>
 
