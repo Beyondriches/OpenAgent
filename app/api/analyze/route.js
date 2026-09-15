@@ -257,31 +257,29 @@ function evaluateRiskReward(
   let explanation =
     "Risk/reward is adequate for the selected timeframe.";
 
-  if (rr2 < 1) {
+  if (rr2 < minimumRR) {
     adjustment = -20;
     quality = "Poor";
     explanation =
-      "Potential reward does not justify the defined downside risk.";
-  } else if (rr2 < minimumRR) {
-    adjustment = -12;
-    quality = "Weak";
-    explanation =
-      "Risk/reward is below Theo's minimum requirement for this timeframe.";
-  } else if (rr1 < 1) {
-    adjustment = -5;
+      "Neither target provides sufficient reward relative to the defined downside risk.";
+  } else if (rr1 < minimumRR) {
+    adjustment = -10;
     quality = "Mixed";
     explanation =
-      "The first target has weak risk/reward, although the second target is acceptable.";
-  } else if (rr1 >= 1.5 && rr2 >= 2) {
+      `Target 1 is below Theo's ${minimumRR.toFixed(2)}:1 minimum, although Target 2 meets the requirement.`;
+  } else if (
+    rr1 >= minimumRR &&
+    rr2 >= 2
+  ) {
     adjustment = 8;
     quality = "Strong";
     explanation =
-      "The setup offers strong reward relative to the defined downside risk.";
+      "Both targets meet Theo's risk/reward requirements, with strong extended-target potential.";
   } else {
     adjustment = 4;
     quality = "Good";
     explanation =
-      "Both the initial target and extended target offer reasonable trade economics.";
+      "Both targets meet Theo's minimum risk/reward requirement.";
   }
 
   return {
