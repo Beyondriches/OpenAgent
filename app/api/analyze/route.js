@@ -9,155 +9,115 @@ const COINS = {
   DOGE: "dogecoin",
   AVAX: "avalanche-2",
   LINK: "chainlink",
-  DOT: "polkadot",
-  LTC: "litecoin",
+};
+
+const MODES = {
+  day: {
+    days: 30,
+    fastPeriod: 3,
+    slowPeriod: 7,
+    rsiPeriod: 7,
+    entryPct: 0.008,
+    invalidationPct: 0.025,
+    target1Pct: 0.025,
+    target2Pct: 0.05,
+  },
+  swing: {
+    days: 90,
+    fastPeriod: 7,
+    slowPeriod: 30,
+    rsiPeriod: 14,
+    entryPct: 0.015,
+    invalidationPct: 0.07,
+    target1Pct: 0.1,
+    target2Pct: 0.18,
+  },
+  "long-term": {
+    days: 365,
+    fastPeriod: 50,
+    slowPeriod: 200,
+    rsiPeriod: 14,
+    entryPct: 0.04,
+    invalidationPct: 0.15,
+    target1Pct: 0.25,
+    target2Pct: 0.5,
+  },
 };
 
 function average(values) {
-  if (!values?.length) return 0;
+  if (!values.length) return 0;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function standardDeviation(values) {
-  if (!values?.length) return 0;
-
-  const mean = average(values);
-
-  const variance =
-    values.reduce(
-      (sum, value) => sum + Math.pow(value - mean, 2),
-      0
-    ) / values.length;
-
-  return Math.sqrt(variance);
+function sma(values, period) {
+  if (!values.length) return 0;
+  const slice = values.slice(-Math.min(period, values.length));
+  return average(slice);
 }
 
-function calculateRSI(prices, period = 14) {
-  if (!prices || prices.length < period + 1) return null;
+function calculateRSI(values, period = 14) {
+  if (values.length < 2) return 50;
 
-  const changes = [];
-
-  for (let i = 1; i < prices.length; i++) {
-    changes.push(prices[i] - prices[i - 1]);
-  }
-
-  const recent = changes.slice(-period);
+  const usablePeriod = Math.min(period, values.length - 1);
+  const slice = values.slice(-(usablePeriod + 1));
 
   let gains = 0;
   let losses = 0;
 
-  for (const change of recent) {
+  for (let i = 1; i < slice.length; i++) {
+    const change = slice[i] - slice[i - 1];
+
     if (change > 0) gains += change;
     if (change < 0) losses += Math.abs(change);
   }
 
-  const avgGain = gains / period;
-  const avgLoss = losses / period;
+  const avgGain = gains / usablePeriod;
+  const avgLoss = losses / usablePeriod;
 
   if (avgLoss === 0) return 100;
 
   const rs = avgGain / avgLoss;
-
   return 100 - 100 / (1 + rs);
 }
 
-function calculateEMA(values, period) {
-  if (!values || values.length < period) return null;
+function volatility(values, period = 14) {
+  if (values.length < 2) return 0;
 
-  const multiplier = 2 / (period + 1);
-
-  let ema = average(values.slice(0, period));
-
-  for (let i = period; i < values.length; i++) {
-    ema = values[i] * multiplier + ema * (1 - multiplier);
-  }
-
-  return ema;
-}
-
-function calculateEMASeries(values, period) {
-  if (!values || values.length < period) return [];
-
-  const multiplier = 2 / (period + 1);
-  const series = [];
-
-  let ema = average(values.slice(0, period));
-
-  series.push(ema);
-
-  for (let i = period; i < values.length; i++) {
-    ema = values[i] * multiplier + ema * (1 - multiplier);
-    series.push(ema);
-  }
-
-  return series;
-}
-
-function calculateMACD(prices) {
-  if (!prices || prices.length < 35) {
-    return {
-      macd: null,
-      signal: null,
-      histogram: null,
-    };
-  }
-
-  const ema12Series = calculateEMASeries(prices, 12);
-  const ema26Series = calculateEMASeries(prices, 26);
-
-  const offset = ema12Series.length - ema26Series.length;
-
-  const macdSeries = ema26Series.map(
-    (ema26, index) => ema12Series[index + offset] - ema26
-  );
-
-  if (macdSeries.length < 9) {
-    return {
-      macd: macdSeries.at(-1) ?? null,
-      signal: null,
-      histogram: null,
-    };
-  }
-
-  const signalSeries = calculateEMASeries(macdSeries, 9);
-
-  const macd = macdSeries.at(-1);
-  const signal = signalSeries.at(-1);
-
-  return {
-    macd,
-    signal,
-    histogram:
-      macd !== null && signal !== null ? macd - signal : null,
-  };
-}
-
-function calculateVolatility(prices) {
-  if (!prices || prices.length < 2) return 0;
-
+  const slice = values.slice(-(period + 1));
   const returns = [];
 
-  for (let i = 1; i < prices.length; i++) {
+  for (let i = 1; i < slice.length; i++) {
     returns.push(
-      ((prices[i] - prices[i - 1]) / prices[i - 1]) * 100
+      ((slice[i] - slice[i - 1]) / slice[i - 1]) * 100
     );
   }
 
-  return standardDeviation(returns);
+  const mean = average(returns);
+
+  const variance =
+    returns.reduce(
+      (sum, value) => sum + Math.pow(value - mean, 2),
+      0
+    ) / returns.length;
+
+  return Math.sqrt(variance);
 }
 
-function round(value, decimals = 2) {
-  if (value === null || value === undefined) return null;
+function percentageChange(current, previous) {
+  if (!previous) return 0;
+  return ((current - previous) / previous) * 100;
+}
 
-  return Number(Number(value).toFixed(decimals));
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
 export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "Theo Crypto Agent",
-    version: "0.8",
-    engine: "Theo Multi-Indicator Engine",
+    version: "0.9",
+    engine: "Multi-Timeframe Intelligence",
     endpoint: "/api/analyze",
     marketData: "CoinGecko",
   });
@@ -171,10 +131,15 @@ export async function POST(request) {
       .trim()
       .toUpperCase();
 
-    const timeframe = String(body?.timeframe || "swing")
+    const requestedMode = String(body?.timeframe || "swing")
       .trim()
       .toLowerCase();
 
+    const timeframe = MODES[requestedMode]
+      ? requestedMode
+      : "swing";
+
+    const config = MODES[timeframe];
     const coinId = COINS[symbol];
 
     if (!coinId) {
@@ -182,21 +147,35 @@ export async function POST(request) {
         {
           ok: false,
           error:
-            "Unsupported asset. Try BTC, ETH, SOL, XRP, ADA, DOGE, AVAX, LINK, DOT or LTC.",
+            "Unsupported symbol. Try BTC, ETH, SOL, XRP, ADA, DOGE, AVAX or LINK.",
         },
         { status: 400 }
       );
     }
 
     const marketUrl =
-      "https://api.coingecko.com/api/v3/coins/markets" +
+      `https://api.coingecko.com/api/v3/coins/markets` +
       `?vs_currency=usd&ids=${coinId}` +
-      "&price_change_percentage=24h,7d,30d";
+      `&price_change_percentage=24h,7d,30d`;
 
-    const marketResponse = await fetch(marketUrl, {
-      headers: { accept: "application/json" },
-      cache: "no-store",
-    });
+    const historyUrl =
+      `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart` +
+      `?vs_currency=usd&days=${config.days}&interval=daily`;
+
+    const [marketResponse, historyResponse] = await Promise.all([
+      fetch(marketUrl, {
+        headers: {
+          accept: "application/json",
+        },
+        cache: "no-store",
+      }),
+      fetch(historyUrl, {
+        headers: {
+          accept: "application/json",
+        },
+        cache: "no-store",
+      }),
+    ]);
 
     if (!marketResponse.ok) {
       throw new Error(
@@ -204,383 +183,132 @@ export async function POST(request) {
       );
     }
 
+    if (!historyResponse.ok) {
+      throw new Error(
+        `CoinGecko history request returned ${historyResponse.status}`
+      );
+    }
+
     const marketData = await marketResponse.json();
-    const coin = marketData[0];
+    const historyData = await historyResponse.json();
+
+    const coin = marketData?.[0];
 
     if (!coin) {
       throw new Error("No market data returned.");
     }
 
-    /*
-      Fetch 90 days so MACD has enough history.
-    */
+    const prices = Array.isArray(historyData?.prices)
+      ? historyData.prices
+          .map((item) => Number(item?.[1]))
+          .filter(Number.isFinite)
+      : [];
 
-    const chartUrl =
-      `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart` +
-      "?vs_currency=usd&days=90&interval=daily";
-
-    const chartResponse = await fetch(chartUrl, {
-      headers: { accept: "application/json" },
-      cache: "no-store",
-    });
-
-    if (!chartResponse.ok) {
-      throw new Error(
-        `CoinGecko chart request returned ${chartResponse.status}`
-      );
-    }
-
-    const chartData = await chartResponse.json();
-
-    const prices = (chartData.prices || [])
-      .map((item) => Number(item[1]))
-      .filter(Number.isFinite);
-
-    if (prices.length < 35) {
+    if (prices.length < 5) {
       throw new Error("Not enough historical price data.");
     }
 
-    const currentPrice = Number(coin.current_price);
+    const price = Number(coin.current_price);
+    const fastSMA = sma(prices, config.fastPeriod);
+    const slowSMA = sma(prices, config.slowPeriod);
+    const rsi = calculateRSI(prices, config.rsiPeriod);
+    const vol = volatility(prices, 14);
 
-    /*
-      Moving averages
-    */
+    const recentWindow = prices.slice(-Math.min(30, prices.length));
+    const recentHigh = Math.max(...recentWindow);
+    const recentLow = Math.min(...recentWindow);
 
-    const sma7 = average(prices.slice(-7));
-    const sma14 = average(prices.slice(-14));
-    const sma30 = average(prices.slice(-30));
-
-    const ema12 = calculateEMA(prices, 12);
-    const ema26 = calculateEMA(prices, 26);
-
-    /*
-      RSI
-    */
-
-    const rsi = calculateRSI(prices, 14);
-
-    /*
-      MACD
-    */
-
-    const macdData = calculateMACD(prices);
-
-    /*
-      Bollinger Bands
-    */
-
-    const bollingerPrices = prices.slice(-20);
-    const bollingerMiddle = average(bollingerPrices);
-    const bollingerDeviation = standardDeviation(bollingerPrices);
-
-    const bollingerUpper =
-      bollingerMiddle + bollingerDeviation * 2;
-
-    const bollingerLower =
-      bollingerMiddle - bollingerDeviation * 2;
-
-    const bollingerWidth =
-      bollingerMiddle > 0
-        ? ((bollingerUpper - bollingerLower) /
-            bollingerMiddle) *
-          100
-        : 0;
-
-    let bollingerPosition = "Middle";
-
-    if (currentPrice >= bollingerUpper) {
-      bollingerPosition = "Above Upper";
-    } else if (currentPrice <= bollingerLower) {
-      bollingerPosition = "Below Lower";
-    } else if (currentPrice > bollingerMiddle) {
-      bollingerPosition = "Upper Half";
-    } else if (currentPrice < bollingerMiddle) {
-      bollingerPosition = "Lower Half";
-    }
-
-    /*
-      Volatility and market changes
-    */
-
-    const volatility = calculateVolatility(prices.slice(-14));
-
-    const change24 =
-      Number(coin.price_change_percentage_24h) || 0;
-
-    const change7 =
-      Number(coin.price_change_percentage_7d_in_currency) || 0;
-
-    const change30 =
-      Number(coin.price_change_percentage_30d_in_currency) || 0;
-
-    /*
-      Trend
-    */
+    const periodStart = prices[0];
+    const periodChange = percentageChange(price, periodStart);
 
     let trend = "Neutral";
 
-    if (
-      currentPrice > sma7 &&
-      sma7 > sma14 &&
-      sma14 > sma30 &&
-      ema12 > ema26
-    ) {
+    if (price > fastSMA && fastSMA > slowSMA) {
       trend = "Bullish";
-    }
-
-    if (
-      currentPrice < sma7 &&
-      sma7 < sma14 &&
-      sma14 < sma30 &&
-      ema12 < ema26
-    ) {
+    } else if (price < fastSMA && fastSMA < slowSMA) {
       trend = "Bearish";
     }
 
-    /*
-      Momentum
-    */
-
     let momentum = "Neutral";
 
-    if (rsi !== null) {
-      if (
-        rsi >= 55 &&
-        change7 > 0 &&
-        macdData.histogram !== null &&
-        macdData.histogram > 0
-      ) {
-        momentum = "Positive";
-      }
+    if (rsi >= 60) momentum = "Positive";
+    if (rsi <= 40) momentum = "Negative";
 
-      if (
-        rsi <= 45 &&
-        change7 < 0 &&
-        macdData.histogram !== null &&
-        macdData.histogram < 0
-      ) {
-        momentum = "Negative";
-      }
+    let risk = "Low";
 
-      if (rsi >= 70) {
-        momentum = "Overbought";
-      }
-
-      if (rsi <= 30) {
-        momentum = "Oversold";
-      }
-    }
-
-    /*
-      Risk
-    */
-
-    let risk = "Medium";
-
-    if (volatility >= 5 || bollingerWidth >= 25) {
+    if (vol >= 5) {
       risk = "High";
-    } else if (volatility < 2.5 && bollingerWidth < 15) {
-      risk = "Low";
+    } else if (vol >= 3) {
+      risk = "Medium";
     }
-
-    /*
-      Theo Score v0.8
-    */
 
     let score = 50;
 
-    if (trend === "Bullish") score += 15;
-    if (trend === "Bearish") score -= 15;
+    if (trend === "Bullish") score += 18;
+    if (trend === "Bearish") score -= 18;
 
-    if (currentPrice > sma30) score += 5;
-    if (currentPrice < sma30) score -= 5;
+    if (momentum === "Positive") score += 12;
+    if (momentum === "Negative") score -= 12;
 
-    if (ema12 !== null && ema26 !== null) {
-      if (ema12 > ema26) score += 7;
-      if (ema12 < ema26) score -= 7;
-    }
+    if (rsi > 70) score -= 8;
+    if (rsi < 30) score += 5;
 
-    if (
-      macdData.macd !== null &&
-      macdData.signal !== null
-    ) {
-      if (macdData.macd > macdData.signal) score += 8;
-      if (macdData.macd < macdData.signal) score -= 8;
-    }
+    if (periodChange > 10) score += 5;
+    if (periodChange < -10) score -= 5;
 
-    if (macdData.histogram !== null) {
-      if (macdData.histogram > 0) score += 4;
-      if (macdData.histogram < 0) score -= 4;
-    }
+    if (risk === "High") score -= 8;
+    if (risk === "Medium") score -= 3;
 
-    if (momentum === "Positive") score += 10;
-    if (momentum === "Negative") score -= 10;
-
-    if (rsi !== null) {
-      if (rsi >= 50 && rsi < 65) score += 4;
-      if (rsi > 35 && rsi < 50) score -= 4;
-
-      if (rsi <= 30) score += 5;
-      if (rsi >= 70) score -= 8;
-    }
-
-    if (change24 > 0) score += 2;
-    if (change24 < 0) score -= 2;
-
-    if (change7 > 5) score += 4;
-    if (change7 < -5) score -= 4;
-
-    if (
-      currentPrice > bollingerMiddle &&
-      currentPrice < bollingerUpper
-    ) {
-      score += 3;
-    }
-
-    if (currentPrice > bollingerUpper) {
-      score -= 5;
-    }
-
-    if (risk === "High") score -= 5;
-
-    score = Math.max(0, Math.min(100, Math.round(score)));
-
-    /*
-      Verdict
-    */
+    score = Math.round(clamp(score, 0, 100));
 
     let verdict = "WAIT";
 
-    if (
-      score >= 70 &&
-      trend !== "Bearish" &&
-      momentum !== "Overbought" &&
-      macdData.histogram !== null &&
-      macdData.histogram > 0
-    ) {
-      verdict = "BUY";
+    if (score >= 70) {
+      verdict = "BUY BIAS";
+    } else if (score <= 30) {
+      verdict = "DEFENSIVE";
     }
 
-    if (
-      score <= 30 ||
-      (
-        trend === "Bearish" &&
-        momentum === "Negative"
-      )
-    ) {
-      verdict = "AVOID";
-    }
+    const entryLow = price * (1 - config.entryPct);
+    const entryHigh = price * (1 + config.entryPct * 0.35);
 
-    /*
-      Entry / risk references
-    */
+    const invalidation =
+      entryLow * (1 - config.invalidationPct);
 
-    const recentPrices = prices.slice(-7);
-    const recentAverage = average(recentPrices);
-    const recentHigh = Math.max(...recentPrices);
-    const recentLow = Math.min(...recentPrices);
+    const target1 =
+      price * (1 + config.target1Pct);
 
-    const range24 =
+    const target2 =
+      price * (1 + config.target2Pct);
+
+    const range24h =
       coin.high_24h && coin.low_24h
-        ? ((coin.high_24h - coin.low_24h) /
-            coin.low_24h) *
-          100
+        ? percentageChange(coin.high_24h, coin.low_24h)
         : 0;
-
-    let entryLow;
-    let entryHigh;
-    let invalidation;
-    let target1;
-    let target2;
-
-    if (timeframe === "day") {
-      entryLow = Math.min(currentPrice, bollingerMiddle);
-      entryHigh = currentPrice * 1.005;
-      invalidation = Math.min(
-        currentPrice * 0.975,
-        bollingerLower
-      );
-      target1 = currentPrice * 1.025;
-      target2 = currentPrice * 1.05;
-    } else if (timeframe === "long-term") {
-      entryLow = Math.min(
-        currentPrice,
-        sma30,
-        bollingerMiddle
-      );
-
-      entryHigh = Math.max(
-        Math.min(currentPrice, sma30),
-        entryLow
-      );
-
-      invalidation = recentLow * 0.85;
-      target1 = currentPrice * 1.2;
-      target2 = currentPrice * 1.4;
-    } else {
-      entryLow = Math.min(
-        currentPrice,
-        recentAverage,
-        bollingerMiddle
-      );
-
-      entryHigh = Math.max(
-        currentPrice,
-        recentAverage
-      );
-
-      invalidation = Math.min(
-        recentLow * 0.94,
-        bollingerLower
-      );
-
-      target1 = currentPrice * 1.1;
-      target2 = currentPrice * 1.18;
-    }
 
     return NextResponse.json({
       ok: true,
-
+      version: "0.9",
+      engine: "Multi-Timeframe Intelligence",
       symbol,
       timeframe,
       live: true,
       source: "CoinGecko",
 
+      timeframeProfile: {
+        historicalDays: config.days,
+        fastSMA: config.fastPeriod,
+        slowSMA: config.slowPeriod,
+        rsiPeriod: config.rsiPeriod,
+      },
+
       market: {
         name: coin.name,
-        priceUSD: currentPrice,
-        change24h: change24,
-        change7d: change7,
-        change30d: change30,
+        priceUSD: price,
+        change24h: coin.price_change_percentage_24h,
         volume24hUSD: coin.total_volume,
         marketCapUSD: coin.market_cap,
         marketCapRank: coin.market_cap_rank,
-      },
-
-      technicals: {
-        rsi14: round(rsi, 1),
-
-        sma7: round(sma7),
-        sma14: round(sma14),
-        sma30: round(sma30),
-
-        ema12: round(ema12),
-        ema26: round(ema26),
-
-        macd: round(macdData.macd, 4),
-        macdSignal: round(macdData.signal, 4),
-        macdHistogram: round(macdData.histogram, 4),
-
-        bollingerUpper: round(bollingerUpper),
-        bollingerMiddle: round(bollingerMiddle),
-        bollingerLower: round(bollingerLower),
-        bollingerWidth: round(bollingerWidth),
-        bollingerPosition,
-
-        volatility14d: round(volatility),
-
-        recentHigh: round(recentHigh),
-        recentLow: round(recentLow),
       },
 
       analysis: {
@@ -590,20 +318,26 @@ export async function POST(request) {
         momentum,
         risk,
 
-        periodChange: round(change7),
-        range24h: round(range24),
-        recentAverage: round(recentAverage),
+        rsi: Number(rsi.toFixed(1)),
+        fastSMA: Number(fastSMA.toFixed(2)),
+        slowSMA: Number(slowSMA.toFixed(2)),
+        volatility14d: Number(vol.toFixed(2)),
+
+        recentHigh: Number(recentHigh.toFixed(2)),
+        recentLow: Number(recentLow.toFixed(2)),
+        periodChange: Number(periodChange.toFixed(2)),
+        range24h: Number(range24h.toFixed(2)),
 
         entryZone: {
-          low: round(entryLow),
-          high: round(entryHigh),
+          low: Number(entryLow.toFixed(2)),
+          high: Number(entryHigh.toFixed(2)),
         },
 
-        invalidation: round(invalidation),
+        invalidation: Number(invalidation.toFixed(2)),
 
         targets: [
-          round(target1),
-          round(target2),
+          Number(target1.toFixed(2)),
+          Number(target2.toFixed(2)),
         ],
       },
 
@@ -612,39 +346,25 @@ export async function POST(request) {
         `Theo score ${score}/100. ` +
         `Trend is ${trend.toLowerCase()}, ` +
         `momentum is ${momentum.toLowerCase()}, ` +
-        `RSI ${rsi === null ? "N/A" : rsi.toFixed(1)}, ` +
-        `MACD histogram ${
-          macdData.histogram === null
-            ? "N/A"
-            : macdData.histogram.toFixed(2)
-        }, with ${risk.toLowerCase()} risk.`,
+        `RSI ${rsi.toFixed(1)}, with ${risk.toLowerCase()} volatility risk.`,
 
       framework: [
-        `Theo score: ${score}/100.`,
-        `RSI (14): ${rsi === null ? "N/A" : rsi.toFixed(1)}.`,
-        `EMA 12: $${ema12?.toFixed(2) ?? "N/A"}.`,
-        `EMA 26: $${ema26?.toFixed(2) ?? "N/A"}.`,
-        `MACD: ${macdData.macd?.toFixed(2) ?? "N/A"}.`,
-        `MACD signal: ${macdData.signal?.toFixed(2) ?? "N/A"}.`,
-        `MACD histogram: ${macdData.histogram?.toFixed(2) ?? "N/A"}.`,
-        `Bollinger position: ${bollingerPosition}.`,
-        `Bollinger width: ${bollingerWidth.toFixed(2)}%.`,
-        `Trend: ${trend}.`,
-        `Momentum: ${momentum}.`,
-        `Risk level: ${risk}.`,
-        "Signals combine multiple indicators and are not guarantees of future price movement.",
-        "Treat entry zones, invalidation and targets as mechanical research references.",
+        `Timeframe engine: ${config.days}-day historical window.`,
+        `Fast/slow averages: SMA ${config.fastPeriod} / SMA ${config.slowPeriod}.`,
+        `RSI period: ${config.rsiPeriod}.`,
+        "Treat the entry zone as context, not a guaranteed entry.",
+        "Invalidation and targets are mechanical risk references, not predictions.",
         "Keep long-term core capital separate from speculative trading capital.",
         "Avoid FOMO entries after sharp price moves.",
       ],
     });
   } catch (error) {
-    console.error("Theo v0.8 analysis error:", error);
+    console.error("Theo v0.9 analysis error:", error);
 
     return NextResponse.json(
       {
         ok: false,
-        error: "Unable to complete live technical analysis.",
+        error: "Unable to complete multi-timeframe market analysis.",
       },
       { status: 500 }
     );
