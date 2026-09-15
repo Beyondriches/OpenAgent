@@ -138,6 +138,133 @@ export default function Home() {
 
     button: {
       width: "100%",
+   "use client";
+
+import { useState } from "react";
+
+export default function Home() {
+  const [symbol, setSymbol] = useState("ETH");
+  const [timeframe, setTimeframe] = useState("swing");
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function analyze() {
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ symbol, timeframe }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "Analysis failed.");
+      }
+
+      setResult(data);
+    } catch (err) {
+      setError(err.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function money(value) {
+    if (value === null || value === undefined) return "—";
+
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: value < 10 ? 4 : 2,
+    }).format(value);
+  }
+
+  function compactMoney(value) {
+    if (value === null || value === undefined) return "—";
+
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      notation: "compact",
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+
+  function number(value, digits = 2) {
+    if (value === null || value === undefined) return "—";
+    return Number(value).toFixed(digits);
+  }
+
+  function signalColor(signal) {
+    if (signal === "STRONG BUY") return "#20e38a";
+    if (signal === "BUY") return "#54e39b";
+    if (signal === "WAIT") return "#ffc857";
+    if (signal === "SELL") return "#ff8a65";
+    if (signal === "STRONG SELL") return "#ff5263";
+    return "#ffffff";
+  }
+
+  const styles = {
+    page: {
+      minHeight: "100vh",
+      background: "#080b12",
+      color: "#f5f7fb",
+      fontFamily: "Arial, sans-serif",
+      padding: "48px 20px",
+    },
+
+    card: {
+      maxWidth: 820,
+      margin: "0 auto",
+      background: "#111722",
+      border: "1px solid #273044",
+      borderRadius: 18,
+      padding: 28,
+      boxShadow: "0 18px 60px rgba(0,0,0,.35)",
+    },
+
+    badge: {
+      display: "inline-block",
+      padding: "6px 10px",
+      border: "1px solid #36415a",
+      borderRadius: 999,
+      color: "#aebbd2",
+      fontSize: 13,
+    },
+
+    subtitle: {
+      color: "#aebbd2",
+      lineHeight: 1.5,
+    },
+
+    label: {
+      display: "block",
+      marginTop: 18,
+      marginBottom: 8,
+      fontWeight: 700,
+    },
+
+    input: {
+      width: "100%",
+      boxSizing: "border-box",
+      padding: 13,
+      borderRadius: 10,
+      border: "1px solid #36415a",
+      background: "#0b1019",
+      color: "#fff",
+      fontSize: 16,
+    },
+
+    button: {
+      width: "100%",
       marginTop: 14,
       padding: 13,
       border: 0,
@@ -175,11 +302,26 @@ export default function Home() {
       marginBottom: 4,
     },
 
+    section: {
+      marginTop: 16,
+      padding: 16,
+      border: "1px solid #273044",
+      borderRadius: 12,
+      background: "#101725",
+    },
+
+    sectionTitle: {
+      color: "#8fb3df",
+      fontSize: 12,
+      letterSpacing: 1.4,
+      marginBottom: 14,
+    },
+
     grid: {
       display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+      gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
       gap: 10,
-      marginTop: 18,
+      marginTop: 16,
     },
 
     metric: {
@@ -196,19 +338,21 @@ export default function Home() {
       marginBottom: 6,
     },
 
-    section: {
+    reason: {
       marginTop: 16,
       padding: 14,
+      background: "#0b1019",
       border: "1px solid #273044",
-      borderRadius: 12,
-      background: "#101725",
+      borderRadius: 10,
+      lineHeight: 1.55,
     },
 
-    sectionTitle: {
-      color: "#8fb3df",
-      fontSize: 12,
-      letterSpacing: 1.4,
-      marginBottom: 14,
+    progressTrack: {
+      height: 12,
+      marginTop: 10,
+      background: "#20293a",
+      borderRadius: 999,
+      overflow: "hidden",
     },
 
     summary: {
@@ -217,7 +361,7 @@ export default function Home() {
     },
 
     list: {
-      lineHeight: 1.6,
+      lineHeight: 1.65,
       color: "#dbe4f0",
     },
 
@@ -231,20 +375,25 @@ export default function Home() {
     },
   };
 
-  const tech = result?.technicals;
-  const analysis = result?.analysis;
   const market = result?.market;
+  const analysis = result?.analysis;
+  const technicals = result?.technicals;
+
+  const progress = Math.max(
+    0,
+    Math.min(100, Number(analysis?.entryProgress || 0))
+  );
 
   return (
     <main style={styles.page}>
       <section style={styles.card}>
-        <span style={styles.badge}>OpenAgent v0.9</span>
+        <span style={styles.badge}>OpenAgent v1.0</span>
 
         <h1>Theo Crypto Agent</h1>
 
         <p style={styles.subtitle}>
-          Multi-indicator crypto intelligence for long-term, swing and
-          day-trading research.
+          Multi-timeframe crypto decision intelligence for long-term,
+          swing and day-trading research.
         </p>
 
         <label style={styles.label}>Asset symbol</label>
@@ -252,7 +401,9 @@ export default function Home() {
         <input
           style={styles.input}
           value={symbol}
-          onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+          onChange={(e) =>
+            setSymbol(e.target.value.toUpperCase())
+          }
           placeholder="ETH"
         />
 
@@ -283,7 +434,9 @@ export default function Home() {
             <div style={styles.topRow}>
               <div>
                 <h2 style={{ margin: 0 }}>{result.symbol}</h2>
-                <div style={styles.subtitle}>{market?.name}</div>
+                <div style={styles.subtitle}>
+                  {market?.name}
+                </div>
               </div>
 
               <div style={styles.live}>● LIVE</div>
@@ -296,10 +449,14 @@ export default function Home() {
             <div
               style={{
                 fontWeight: 800,
-                color: valueColor(market?.change24h),
+                color:
+                  market?.change24h >= 0
+                    ? "#42e695"
+                    : "#ff6577",
               }}
             >
-              {percent(market?.change24h)} (24h)
+              {market?.change24h >= 0 ? "+" : ""}
+              {number(market?.change24h)}% (24h)
             </div>
 
             <div style={styles.grid}>
@@ -317,7 +474,11 @@ export default function Home() {
 
               <Metric
                 label="Market Rank"
-                value={`#${market?.marketCapRank}`}
+                value={
+                  market?.marketCapRank
+                    ? `#${market.marketCapRank}`
+                    : "—"
+                }
                 styles={styles}
               />
 
@@ -329,14 +490,15 @@ export default function Home() {
             </div>
 
             <div style={styles.section}>
-              <div style={styles.sectionTitle}>THEO SIGNAL</div>
+              <div style={styles.sectionTitle}>
+                THEO DECISION ENGINE
+              </div>
 
               <div
                 style={{
-                  fontSize: 27,
+                  fontSize: 30,
                   fontWeight: 900,
                   color: signalColor(analysis?.verdict),
-                  marginBottom: 14,
                 }}
               >
                 {analysis?.verdict}
@@ -346,6 +508,12 @@ export default function Home() {
                 <Metric
                   label="Theo Score"
                   value={`${analysis?.score}/100`}
+                  styles={styles}
+                />
+
+                <Metric
+                  label="Confidence"
+                  value={analysis?.confidence}
                   styles={styles}
                 />
 
@@ -367,6 +535,30 @@ export default function Home() {
                   styles={styles}
                 />
 
+                <Metric
+                  label="Entry Proximity"
+                  value={`${number(
+                    analysis?.entryProgress,
+                    0
+                  )}%`}
+                  styles={styles}
+                />
+              </div>
+
+              <div style={styles.reason}>
+                <strong>Why Theo chose this:</strong>
+                <div style={{ marginTop: 6 }}>
+                  {analysis?.reason}
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.section}>
+              <div style={styles.sectionTitle}>
+                TRADE STRUCTURE
+              </div>
+
+              <div style={styles.grid}>
                 <Metric
                   label="Entry Low"
                   value={money(analysis?.entryZone?.low)}
@@ -398,138 +590,115 @@ export default function Home() {
                 />
 
                 <Metric
-                  label="24h Range"
-                  value={`${number(analysis?.range24h)}%`}
+                  label="R:R Target 1"
+                  value={
+                    analysis?.riskReward?.target1 !== undefined
+                      ? `${number(
+                          analysis.riskReward.target1
+                        )}:1`
+                      : "—"
+                  }
                   styles={styles}
                 />
 
                 <Metric
-                  label="Recent Avg"
-                  value={money(analysis?.recentAverage)}
+                  label="R:R Target 2"
+                  value={
+                    analysis?.riskReward?.target2 !== undefined
+                      ? `${number(
+                          analysis.riskReward.target2
+                        )}:1`
+                      : "—"
+                  }
                   styles={styles}
                 />
+              </div>
 
-                <Metric
-                  label="7d Change"
-                  value={percent(market?.change7d)}
-                  styles={styles}
-                />
+              <div style={{ marginTop: 18 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    color: "#94a3b8",
+                    fontSize: 12,
+                  }}
+                >
+                  <span>Entry-zone proximity</span>
+                  <span>{number(progress, 0)}%</span>
+                </div>
+
+                <div style={styles.progressTrack}>
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${progress}%`,
+                      background: signalColor(
+                        analysis?.verdict
+                      ),
+                      borderRadius: 999,
+                    }}
+                  />
+                </div>
               </div>
             </div>
 
             <div style={styles.section}>
               <div style={styles.sectionTitle}>
-                TECHNICAL ENGINE
+                MARKET STRUCTURE
               </div>
 
               <div style={styles.grid}>
                 <Metric
-                  label="RSI 14"
-                  value={number(tech?.rsi14, 1)}
+                  label="RSI"
+                  value={number(technicals?.rsi, 1)}
                   styles={styles}
                 />
 
                 <Metric
-                  label="SMA 7"
-                  value={money(tech?.sma7)}
+                  label="Fast SMA"
+                  value={money(technicals?.fastSMA)}
                   styles={styles}
                 />
 
                 <Metric
-                  label="SMA 14"
-                  value={money(tech?.sma14)}
-                  styles={styles}
-                />
-
-                <Metric
-                  label="SMA 30"
-                  value={money(tech?.sma30)}
-                  styles={styles}
-                />
-
-                <Metric
-                  label="EMA 12"
-                  value={money(tech?.ema12)}
-                  styles={styles}
-                />
-
-                <Metric
-                  label="EMA 26"
-                  value={money(tech?.ema26)}
-                  styles={styles}
-                />
-
-                <Metric
-                  label="MACD"
-                  value={number(tech?.macd, 4)}
-                  styles={styles}
-                />
-
-                <Metric
-                  label="MACD Signal"
-                  value={number(tech?.macdSignal, 4)}
-                  styles={styles}
-                />
-
-                <Metric
-                  label="MACD Histogram"
-                  value={number(tech?.macdHistogram, 4)}
+                  label="Slow SMA"
+                  value={money(technicals?.slowSMA)}
                   styles={styles}
                 />
 
                 <Metric
                   label="14d Volatility"
-                  value={`${number(tech?.volatility14d)}%`}
+                  value={`${number(
+                    technicals?.volatility14d
+                  )}%`}
                   styles={styles}
                 />
 
                 <Metric
                   label="Recent High"
-                  value={money(tech?.recentHigh)}
+                  value={money(technicals?.recentHigh)}
                   styles={styles}
                 />
 
                 <Metric
                   label="Recent Low"
-                  value={money(tech?.recentLow)}
-                  styles={styles}
-                />
-              </div>
-            </div>
-
-            <div style={styles.section}>
-              <div style={styles.sectionTitle}>
-                BOLLINGER BANDS
-              </div>
-
-              <div style={styles.grid}>
-                <Metric
-                  label="Upper Band"
-                  value={money(tech?.bollingerUpper)}
+                  value={money(technicals?.recentLow)}
                   styles={styles}
                 />
 
                 <Metric
-                  label="Middle Band"
-                  value={money(tech?.bollingerMiddle)}
+                  label="7d Change"
+                  value={`${technicals?.change7d >= 0 ? "+" : ""}${number(
+                    technicals?.change7d
+                  )}%`}
                   styles={styles}
                 />
 
                 <Metric
-                  label="Lower Band"
-                  value={money(tech?.bollingerLower)}
-                  styles={styles}
-                />
-
-                <Metric
-                  label="Band Width"
-                  value={`${number(tech?.bollingerWidth)}%`}
-                  styles={styles}
-                />
-
-                <Metric
-                  label="Price Position"
-                  value={tech?.bollingerPosition}
+                  label="30d Change"
+                  value={`${technicals?.change30d >= 0 ? "+" : ""}${number(
+                    technicals?.change30d
+                  )}%`}
                   styles={styles}
                 />
               </div>
@@ -540,9 +709,11 @@ export default function Home() {
             </p>
 
             <ul style={styles.list}>
-              {result.framework?.map((item, index) => (
-                <li key={index}>{item}</li>
-              ))}
+              {(result.framework || []).map(
+                (item, index) => (
+                  <li key={index}>{item}</li>
+                )
+              )}
             </ul>
 
             <div
@@ -554,7 +725,8 @@ export default function Home() {
                 fontSize: 12,
               }}
             >
-              Data source: {result.source} • Theo Multi-Indicator Engine v0.8
+              Data source: {result.source} • Theo Decision
+              Engine v1.0
             </div>
           </div>
         )}
