@@ -406,7 +406,7 @@ export default function Home() {
         <header style={styles.header}>
           <div>
             <span style={styles.badge}>
-              OPENAGENT v1.5
+              OPENAGENT v1.6
             </span>
 
             <span style={styles.riskBadge}>
@@ -762,6 +762,13 @@ export default function Home() {
                 <Metric
                   label="Trend"
                   value={analysis.trend}
+                />
+
+                <Metric
+                  label="Timeframe Confirmation"
+                  value={
+                    analysis.timeframeConfirmation
+                  }
                 />
 
                 <Metric
