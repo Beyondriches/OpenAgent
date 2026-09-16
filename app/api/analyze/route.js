@@ -871,7 +871,7 @@ export async function POST(request) {
           headers: {
             accept: "application/json",
           },
-          next: { revalidate: 60 },
+          next: { revalidate: 300 },
         }),
 
         fetchWithRetry(historyUrl, {
