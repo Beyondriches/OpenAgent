@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { evaluateRiskReward } from "../../../agents/riskAgent";
 import { getOutlook } from "../../../agents/marketAgent";
+import { evaluateMomentum } from "../../../agents/momentumAgent";
 
 const COINS = {
   BTC: "bitcoin",
@@ -1079,6 +1080,15 @@ export async function POST(request) {
       thirtyDaysAgo
     );
 
+    const momentumAgent = evaluateMomentum({
+      rsi,
+      fastSMA,
+      slowSMA,
+      currentPrice,
+      change7d,
+      change30d,
+    });
+
     /*
       TECHNICAL OUTLOOK SCORE
     */
@@ -1392,6 +1402,8 @@ export async function POST(request) {
         trend,
         timeframeConfirmation,
         momentum,
+        momentumAgent,
+
         risk,
 
         entryProgress:
