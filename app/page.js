@@ -777,6 +777,15 @@ export default function Home() {
                     analysis.momentum
                   }
                 />
+                
+                <Metric
+                  label="Momentum Agent"
+                  value={
+                    analysis.momentumAgent
+                      ? `${analysis.momentumAgent.momentum} (${analysis.momentumAgent.score})`
+                      : "N/A"
+                  }
+                />
 
                 <Metric
                   label="Risk"
