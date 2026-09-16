@@ -13,6 +13,17 @@ const COINS = {
   LINK: "chainlink",
 };
 
+const FALLBACK_SYMBOLS = {
+  BTC: "BTCUSDT",
+  ETH: "ETHUSDT",
+  SOL: "SOLUSDT",
+  XRP: "XRPUSDT",
+  ADA: "ADAUSDT",
+  DOGE: "DOGEUSDT",
+  AVAX: "AVAXUSDT",
+  LINK: "LINKUSDT",
+};
+
 const MODES = {
   day: {
     days: 30,
@@ -864,8 +875,10 @@ export async function POST(request) {
     const historyUrl =
       `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart` +
       `?vs_currency=usd&days=${config.days}&interval=daily`;
+    
+    const fallbackSymbol = FALLBACK_SYMBOLS[symbol];
 
-    const [marketResponse, historyResponse] =
+    let [marketResponse, historyResponse] =
       await Promise.all([
         fetchWithRetry(marketUrl, {
           headers: {
@@ -882,18 +895,87 @@ export async function POST(request) {
         }),
       ]);
 
-    if (!marketResponse.ok) {
+    const coinGeckoRateLimited =
+     marketResponse.status === 429 ||
+     historyResponse.status === 429;
+    
+    if (!marketResponse.ok && !coinGeckoRateLimited) {
       throw new Error(
         `CoinGecko market request returned ${marketResponse.status}`
       );
     }
 
-    if (!historyResponse.ok) {
+    if (!historyResponse.ok && !coinGeckoRateLimited) {
       throw new Error(
         `CoinGecko history request returned ${historyResponse.status}`
       );
     }
 
+    if (coinGeckoRateLimited) {
+  console.warn(
+    `CoinGecko rate limited ${symbol}. Switching to Binance fallback.`
+  );
+
+  const fallbackUrl =
+    `https://api.binance.com/api/v3/klines?symbol=${fallbackSymbol}` +
+    `&interval=1d&limit=${config.days}`;
+
+  const fallbackResponse = await fetch(fallbackUrl, {
+    headers: {
+      accept: "application/json",
+    },
+    next: { revalidate: 300 },
+  });
+
+  if (!fallbackResponse.ok) {
+    throw new Error(
+      `Binance fallback request returned ${fallbackResponse.status}`
+    );
+  }
+
+  const fallbackData = await fallbackResponse.json();
+
+  const fallbackPrices = fallbackData
+    .map((candle) => Number(candle[4]))
+    .filter((price) => Number.isFinite(price));
+
+  if (fallbackPrices.length < 2) {
+    throw new Error("Binance fallback returned insufficient price data.");
+  }
+
+  const latestPrice =
+    fallbackPrices[fallbackPrices.length - 1];
+
+  marketResponse = new Response(
+    JSON.stringify([
+      {
+        current_price: latestPrice,
+      },
+    ]),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  historyResponse = new Response(
+    JSON.stringify({
+      prices: fallbackPrices.map((price, index) => [
+        index,
+        price,
+      ]),
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+}
+   
     const marketData =
       await marketResponse.json();
 
