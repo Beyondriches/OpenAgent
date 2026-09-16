@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { evaluateRiskReward } from "../../../agents/riskAgent";
+import { getOutlook } from "../../../agents/marketAgent";
 
 const COINS = {
   BTC: "bitcoin",
@@ -226,26 +227,6 @@ function getConfidence(score) {
   if (distance >= 15) return "Medium";
 
   return "Low";
-}
-
-function getOutlook(technicalScore) {
-  if (technicalScore >= 80) {
-    return "STRONGLY BULLISH";
-  }
-
-  if (technicalScore >= 65) {
-    return "BULLISH";
-  }
-
-  if (technicalScore >= 45) {
-    return "NEUTRAL";
-  }
-
-  if (technicalScore >= 30) {
-    return "BEARISH";
-  }
-
-  return "STRONGLY BEARISH";
 }
 
 function evaluateEntryQuality({
