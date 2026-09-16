@@ -841,14 +841,14 @@ export async function POST(request) {
           headers: {
             accept: "application/json",
           },
-          cache: "no-store",
+          next: { revalidate: 60 },
         }),
 
         fetch(historyUrl, {
           headers: {
             accept: "application/json",
           },
-          cache: "no-store",
+          next: { revalidate: 60 },
         }),
       ]);
 
