@@ -3,6 +3,7 @@ import { evaluateRiskReward } from "../../../agents/riskAgent";
 import { getOutlook } from "../../../agents/marketAgent";
 import { evaluateMomentum } from "../../../agents/momentumAgent";
 import { evaluateTrend } from "../../../agents/trendAgent";
+import { evaluateVolatility } from "../../../agents/volatilityAgent";
 
 const COINS = {
   BTC: "bitcoin",
@@ -1098,6 +1099,11 @@ export async function POST(request) {
       change30d,
     });
  
+    const volatilityAgent = evaluateVolatility({
+      historicalPrices,
+      currentPrice,
+    });
+
    /*
       TECHNICAL OUTLOOK SCORE
     */
@@ -1412,6 +1418,8 @@ export async function POST(request) {
         timeframeConfirmation,
         momentum,
         momentumAgent,
+        trendAgent,
+        volatilityAgent,
 
         risk,
 
