@@ -1139,8 +1139,36 @@ export async function POST(request) {
       historicalPrices,
     });
 
+    let newsItems = [];
+    try {
+      const newsResponse = await fetch(
+        `https://cryptocurrency.cv/api/news?coin=${symbol}`,
+        {
+         cache: "no-store",
+        }
+      );
+
+      if (newsResponse.ok) {
+        const newsData = await newsResponse.json();
+
+        newsItems = Array.isArray(newsData)
+          ? newsData.slice(0, 10)
+          : Array.isArray(newsData?.articles)
+            ? newsData.articles.slice(0, 10)
+            : [];
+      } else {
+        console.warn(
+          `Search news unavailable for ${symbol}.`
+        );
+      }
+    } catch (error) {
+      console.warn(
+    `Search news failed for ${symbol}:`,
+    error.message
+  );
+}
     const searchAgent = evaluateSearchContext({
-      newsItems: [],
+      newsItems,
     });
 
     /*
@@ -1460,7 +1488,7 @@ export async function POST(request) {
         trendAgent,
         volatilityAgent,
         volumeAgent,
-        liquidityAgent,
+        
         structureAgent,
         searchAgent,
 
