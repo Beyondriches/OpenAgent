@@ -787,6 +787,33 @@ export async function GET() {
   });
 }
 
+async function fetchWithRetry(url, options = {}, retries = 3) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const response = await fetch(url, options);
+
+    if (response.status !== 429) {
+      return response;
+    }
+
+    if (attempt === retries) {
+      return response;
+    }
+
+    const retryAfter = response.headers.get("retry-after");
+
+    const delay = retryAfter
+      ? Number(retryAfter) * 1000
+      : 1000 * Math.pow(2, attempt);
+
+    console.warn(
+      `CoinGecko rate limited request. Retrying in ${delay}ms...`
+    );
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, delay)
+    );
+  }
+}
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -837,14 +864,14 @@ export async function POST(request) {
 
     const [marketResponse, historyResponse] =
       await Promise.all([
-        fetch(marketUrl, {
+        fetchWithRetry(marketUrl, {
           headers: {
             accept: "application/json",
           },
           next: { revalidate: 60 },
         }),
 
-        fetch(historyUrl, {
+        fetchWithRetry(historyUrl, {
           headers: {
             accept: "application/json",
           },
