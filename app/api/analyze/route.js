@@ -3,7 +3,7 @@ import { evaluateRiskReward } from "../../../agents/riskAgent";
 import { getOutlook } from "../../../agents/marketAgent";
 import { evaluateMomentum } from "../../../agents/momentumAgent";
 import { evaluateTrend } from "../../../agents/trendAgent";
-import { evaluateVolatility } from "../../../agents/volatilityAgent";
+import { evaluateVolatility } from "../../../agents/volatilityagent";
 
 const COINS = {
   BTC: "bitcoin",
