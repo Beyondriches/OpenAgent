@@ -833,6 +833,15 @@ export default function Home() {
                 />
 
                 <Metric
+                  label="Search Agent"
+                  value={
+                    analysis.searchAgent
+                      ? `${analysis.searchAgent.sentiment} (${analysis.searchAgent.score})`
+                      : "N/A"
+                  }
+                />
+
+                <Metric
                   label="Risk"
                   value={analysis.risk}
                 />
