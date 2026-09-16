@@ -815,6 +815,15 @@ export default function Home() {
                 />
 
                 <Metric
+                  label="Liquidity Agent"
+                  value={
+                    analysis.liquidityAgent
+                      ? `${analysis.liquidityAgent.liquidity} (${analysis.liquidityAgent.score})`
+                      : "N/A"
+                  }
+                />
+
+                <Metric
                   label="Risk"
                   value={analysis.risk}
                 />
