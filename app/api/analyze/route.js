@@ -787,7 +787,7 @@ export async function GET() {
   });
 }
 
-async function fetchWithRetry(url, options = {}, retries = 1) {
+async function fetchWithRetry(url, options = {}, retries = 2) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const response = await fetch(url, options);
 
