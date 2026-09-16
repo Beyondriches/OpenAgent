@@ -801,9 +801,12 @@ async function fetchWithRetry(url, options = {}, retries = 1) {
 
     const retryAfter = response.headers.get("retry-after");
 
-    const delay = retryAfter
-      ? Number(retryAfter) * 1000
-      : 1000 * Math.pow(2, attempt);
+const delay = Math.min(
+  retryAfter
+    ? Number(retryAfter) * 1000
+    : 1000 * Math.pow(2, attempt),
+  3000
+);
 
     console.warn(
       `CoinGecko rate limited request. Retrying in ${delay}ms...`
