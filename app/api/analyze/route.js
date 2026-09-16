@@ -4,6 +4,7 @@ import { getOutlook } from "../../../agents/marketAgent";
 import { evaluateMomentum } from "../../../agents/momentumAgent";
 import { evaluateTrend } from "../../../agents/trendAgent";
 import { evaluateVolatility } from "../../../agents/volatilityagent";
+import { evaluateVolume } from "../../../agents/volumeAgent";
 
 const COINS = {
   BTC: "bitcoin",
@@ -938,9 +939,14 @@ export async function POST(request) {
 
   const fallbackData = await fallbackResponse.json();
 
-   const fallbackPrices = fallbackData
+  const fallbackPrices = fallbackData
     .map((candle) => Number(candle[4]))
     .filter((price) => Number.isFinite(price))
+    .reverse();
+
+  const fallbackVolumes = fallbackData
+    .map((candle) => Number(candle[5]))
+    .filter((volume) => Number.isFinite(volume))
     .reverse();
 
   if (fallbackPrices.length < 2) {
@@ -979,6 +985,10 @@ export async function POST(request) {
         index,
         price,
       ]),
+      total_volumes: fallbackVolumes.map((volume, index) => [
+        index,
+        volume,
+      ]),
     }),
     {
       status: 200,
@@ -1006,6 +1016,15 @@ export async function POST(request) {
     const historicalPrices =
       Array.isArray(historyData?.prices)
         ? historyData.prices
+            .map((item) => Number(item?.[1]))
+            .filter((value) =>
+              Number.isFinite(value)
+            )
+        : [];
+
+    const historicalVolumes =
+      Array.isArray(historyData?.total_volumes)
+        ? historyData.total_volumes
             .map((item) => Number(item?.[1]))
             .filter((value) =>
               Number.isFinite(value)
@@ -1104,7 +1123,11 @@ export async function POST(request) {
       currentPrice,
     });
 
-   /*
+    const volumeAgent = evaluateVolume({
+      historicalVolumes,
+    });
+
+    /*
       TECHNICAL OUTLOOK SCORE
     */
 
@@ -1420,6 +1443,7 @@ export async function POST(request) {
         momentumAgent,
         trendAgent,
         volatilityAgent,
+        volumeAgent,
 
         risk,
 

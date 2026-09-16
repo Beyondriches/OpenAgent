@@ -806,6 +806,15 @@ export default function Home() {
                 />
 
                 <Metric
+                  label="Volume Agent"
+                  value={
+                    analysis.volumeAgent
+                      ? `${analysis.volumeAgent.volume} (${analysis.volumeAgent.score})`
+                      : "N/A"
+                  }
+                />
+
+                <Metric
                   label="Risk"
                   value={analysis.risk}
                 />
