@@ -14,14 +14,14 @@ const COINS = {
 };
 
 const FALLBACK_SYMBOLS = {
-  BTC: "BTCUSDT",
-  ETH: "ETHUSDT",
-  SOL: "SOLUSDT",
-  XRP: "XRPUSDT",
-  ADA: "ADAUSDT",
-  DOGE: "DOGEUSDT",
-  AVAX: "AVAXUSDT",
-  LINK: "LINKUSDT",
+  BTC: "BTC-USD",
+  ETH: "ETH-USD",
+  SOL: "SOL-USD",
+  XRP: "XRP-USD",
+  ADA: "ADA-USD",
+  DOGE: "DOGE-USD",
+  AVAX: "AVAX-USD",
+  LINK: "LINK-USD",
 };
 
 const MODES = {
@@ -913,12 +913,12 @@ export async function POST(request) {
 
     if (coinGeckoRateLimited) {
   console.warn(
-    `CoinGecko rate limited ${symbol}. Switching to Binance fallback.`
+    `CoinGecko rate limited ${symbol}. Switching to Coinbase fallback.`
   );
 
   const fallbackUrl =
-    `https://api.binance.com/api/v3/klines?symbol=${fallbackSymbol}` +
-    `&interval=1d&limit=${config.days}`;
+    `https://api.exchange.coinbase.com/products/${fallbackSymbol}/candles` +
+    `?granularity=86400&limit=300`;
 
   const fallbackResponse = await fetch(fallbackUrl, {
     headers: {
@@ -929,27 +929,37 @@ export async function POST(request) {
 
   if (!fallbackResponse.ok) {
     throw new Error(
-      `Binance fallback request returned ${fallbackResponse.status}`
+      `Coinbase fallback request returned ${fallbackResponse.status}`
     );
   }
 
   const fallbackData = await fallbackResponse.json();
 
-  const fallbackPrices = fallbackData
+   const fallbackPrices = fallbackData
     .map((candle) => Number(candle[4]))
-    .filter((price) => Number.isFinite(price));
+    .filter((price) => Number.isFinite(price))
+    .reverse();
 
   if (fallbackPrices.length < 2) {
-    throw new Error("Binance fallback returned insufficient price data.");
+    throw new Error("Coinbase fallback returned insufficient price data.");
   }
 
   const latestPrice =
     fallbackPrices[fallbackPrices.length - 1];
+ 
+  const previousPrice =
+    fallbackPrices[fallbackPrices.length - 2];
+
+  const change24hFallback =
+    previousPrice > 0
+    ? ((latestPrice - previousPrice) / previousPrice) * 100
+    : 0;
 
   marketResponse = new Response(
     JSON.stringify([
       {
         current_price: latestPrice,
+        price_change_percentage_24h: change24hFallback,
       },
     ]),
     {
@@ -1353,14 +1363,14 @@ export async function POST(request) {
               0
           ),
 
-        volume24hUSD:
-          coin.total_volume,
+     volume24hUSD:
+       coin.total_volume ?? null,
 
-        marketCapUSD:
-          coin.market_cap,
+     marketCapUSD:
+       coin.market_cap ?? null,
 
-        marketCapRank:
-          coin.market_cap_rank,
+     marketCapRank:
+       coin.market_cap_rank ?? null,
       },
 
       analysis: {
