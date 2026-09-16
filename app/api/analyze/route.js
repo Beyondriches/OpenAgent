@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { evaluateRiskReward } from "../../../agents/riskAgent";
 import { getOutlook } from "../../../agents/marketAgent";
 import { evaluateMomentum } from "../../../agents/momentumAgent";
+import { evaluateTrend } from "../../../agents/trendAgent";
 
 const COINS = {
   BTC: "bitcoin",
@@ -1089,7 +1090,15 @@ export async function POST(request) {
       change30d,
     });
 
-    /*
+    const trendAgent = evaluateTrend({
+      currentPrice,
+      fastSMA,
+      slowSMA,
+      change7d,
+      change30d,
+    });
+ 
+   /*
       TECHNICAL OUTLOOK SCORE
     */
 

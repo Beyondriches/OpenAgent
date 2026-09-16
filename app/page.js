@@ -787,7 +787,16 @@ export default function Home() {
                   }
                 />
 
-                <Metric
+               <Metric
+                 label="Trend Agent"
+                 value={
+                   analysis.trendAgent
+                     ? `${analysis.trendAgent.trend} (${analysis.trendAgent.score})`
+                     : "N/A"
+                 }
+               />
+               
+               <Metric
                   label="Risk"
                   value={analysis.risk}
                 />
