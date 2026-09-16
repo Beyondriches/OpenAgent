@@ -824,6 +824,15 @@ export default function Home() {
                 />
 
                 <Metric
+                  label="Structure Agent"
+                  value={
+                    analysis.structureAgent
+                      ? `${analysis.structureAgent.structure} (${analysis.structureAgent.score})`
+                      : "N/A"
+                  }
+                />
+
+                <Metric
                   label="Risk"
                   value={analysis.risk}
                 />
