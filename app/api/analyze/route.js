@@ -1475,7 +1475,7 @@ export async function POST(request) {
         });
     }
 
-    return NextResponse.json({
+    const result = {
       ok: true,
       symbol,
       timeframe,
@@ -1668,8 +1668,27 @@ export async function POST(request) {
 
         "Avoid increasing size to recover previous losses.",
       ],
-    });
-  } catch (error) {
+    };
+      
+     const { error: snapshotError } = await supabase
+      .from("analysis_snapshots")
+      .insert({
+        symbol,
+        timeframe,
+        current_price: currentPrice,
+        analysis: result,
+      });
+
+    if (snapshotError) {
+      console.error(
+        "Supabase snapshot error:",
+        snapshotError
+      );
+    }
+
+    return NextResponse.json(result);
+
+} catch (error) {
     console.error(
       "Theo v1.4 analysis error:",
       error
