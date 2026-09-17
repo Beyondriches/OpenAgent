@@ -502,6 +502,40 @@ export default function Home() {
         {data && analysis && (
           <>
             <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>
+                SNAPSHOT MEMORY
+              </h2>
+
+              <div style={styles.metrics}>
+                <Metric
+                  label="Asset / Mode"
+                  value={`${data.symbol} / ${data.timeframe}`}
+                />
+
+                <Metric
+                  label="History Count Reported"
+                  value={data.previousSnapshotCount ?? "Not provided"}
+                />
+
+                <Metric
+                  label="Snapshots Received"
+                  value={
+                    Array.isArray(data.previousSnapshots)
+                      ? data.previousSnapshots.length
+                      : "Not provided"
+                  }
+                />
+              </div>
+
+              <p style={styles.paragraph}>
+                {Array.isArray(data.previousSnapshots) &&
+                data.previousSnapshots.length > 0
+                  ? "Previous snapshots received for this asset and timeframe."
+                  : "No previous snapshots received in this response."}
+              </p>
+            </section>
+
+            <section style={styles.card}>
               <h2
                 style={
                   styles.sectionTitle
