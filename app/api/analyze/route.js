@@ -1198,7 +1198,7 @@ export async function POST(request) {
    });
 
     const orchestratorAgent = evaluateOrchestration({
-      mode,
+      mode: timeframe,
       momentumAgent,
       trendAgent,
       volatilityAgent,
