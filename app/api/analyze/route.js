@@ -28,6 +28,40 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY
 );
 
+// v1.6.1 transient history retry helpers
+const RECENT_HISTORY_RETRY_DELAY_MS = 750;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientJwtTimingError(error) {
+  return (
+    typeof error?.message === "string" &&
+    error.message
+      .toLowerCase()
+      .includes("jwt issued at future")
+  );
+}
+
+async function runRecentHistoryQueryWithRetry(
+  queryFactory,
+  {
+    delayMs = RECENT_HISTORY_RETRY_DELAY_MS,
+    sleepFn = sleep,
+  } = {}
+) {
+  const firstResult = await queryFactory();
+
+  if (!isTransientJwtTimingError(firstResult?.error)) {
+    return firstResult;
+  }
+
+  await sleepFn(delayMs);
+  return queryFactory();
+}
+// END v1.6.1 transient history retry helpers
+
 const COINS = {
   BTC: "bitcoin",
   ETH: "ethereum",
@@ -815,7 +849,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "Theo Crypto Agent",
-    version: "1.6",
+    version: "1.6.1",
     engine:
       "Theo Capital Protection + Aggressive Position Sizing Engine",
     riskProfile: RISK_PROFILE.name,
@@ -897,15 +931,20 @@ export async function POST(request) {
       Date.now() - HISTORY_MIN_AGE_MS
     ).toISOString();
 
+    const recentHistoryQuery = () =>
+      supabase
+        .from("analysis_snapshots")
+        .select("*")
+        .eq("symbol", symbol)
+        .eq("timeframe", timeframe)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
     const [recentHistoryResult, eligibleHistoryResult] =
       await Promise.all([
-        supabase
-          .from("analysis_snapshots")
-          .select("*")
-          .eq("symbol", symbol)
-          .eq("timeframe", timeframe)
-          .order("created_at", { ascending: false })
-          .limit(5),
+        runRecentHistoryQueryWithRetry(
+          recentHistoryQuery
+        ),
 
         supabase
           .from("analysis_snapshots")
@@ -1570,7 +1609,7 @@ export async function POST(request) {
       previousSnapshotCount: previousSnapshots?.length || 0,
       live: true,
       source: marketSource,
-      version: "1.6",
+      version: "1.6.1",
       history,
 
       riskProfile: {
