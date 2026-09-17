@@ -860,6 +860,15 @@ export default function Home() {
                />
 
                 <Metric
+                  label="Compare Agent"
+                  value={
+                    analysis.compareAgent
+                    ? `${analysis.compareAgent.agreement} agreement • ${analysis.compareAgent.direction} • ${analysis.compareAgent.confidence} confidence`
+                    : "N/A"
+                 }
+               />
+
+                <Metric
                   label="Risk"
                   value={analysis.risk}
                 />

@@ -10,6 +10,7 @@ import { evaluateStructure } from "../../../agents/structureAgent";
 import { evaluateSearchContext } from "../../../agents/searchAgent";
 import { evaluateDataAnalysis } from "../../../agents/dataAnalysisAgent";
 import { evaluateRegime } from "../../../agents/regimeAgent";
+import { evaluateComparison } from "../../../agents/compareAgent";
 
 const COINS = {
   BTC: "bitcoin",
@@ -1186,6 +1187,15 @@ export async function POST(request) {
       slowSMA,
     });
 
+    const compareAgent = evaluateComparison({
+      momentumAgent,
+      trendAgent,
+      structureAgent,
+      searchAgent,
+      dataAnalysisAgent,
+      regimeAgent,
+   });
+
     /*
       TECHNICAL OUTLOOK SCORE
     */
@@ -1508,6 +1518,7 @@ export async function POST(request) {
         searchAgent,
         dataAnalysisAgent,
         regimeAgent,
+        compareAgent,
 
         risk,
 
