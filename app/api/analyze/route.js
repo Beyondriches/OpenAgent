@@ -849,7 +849,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "Theo Crypto Agent",
-    version: "1.6.1",
+    version: "1.7.0",
     engine:
       "Theo Capital Protection + Aggressive Position Sizing Engine",
     riskProfile: RISK_PROFILE.name,
@@ -1609,7 +1609,7 @@ export async function POST(request) {
       previousSnapshotCount: previousSnapshots?.length || 0,
       live: true,
       source: marketSource,
-      version: "1.6.1",
+      version: "1.7.0",
       history,
 
       riskProfile: {
@@ -1788,7 +1788,7 @@ export async function POST(request) {
 
         "Long-term capital and short-term trading capital are evaluated separately.",
 
-        "No leverage is used in the v1.6 sizing model.",
+        "No leverage is used in the v1.7 sizing model.",
 
         "Invalidation defines the planned downside boundary, not a guarantee of execution price.",
 
@@ -1799,8 +1799,148 @@ export async function POST(request) {
         "Avoid increasing size to recover previous losses.",
       ],
     };
-      
-     const { error: snapshotError } = await supabase
+
+    /*
+      v1.7 PAPER TRADE JOURNAL
+
+      Only actionable long signals are journaled:
+      - BUY NOW for day/swing
+      - ACCUMULATE for long-term
+
+      One open paper trade per symbol + timeframe is allowed.
+      Re-running analysis will not intentionally create another
+      open position for the same market/mode.
+    */
+    const actionablePaperSignal =
+      actionDecision.action === "BUY NOW" ||
+      actionDecision.action === "ACCUMULATE";
+
+    let paperTrade = {
+      eligible: actionablePaperSignal,
+      recorded: false,
+      duplicatePrevented: false,
+      tradeId: null,
+      reason: actionablePaperSignal
+        ? "Actionable signal detected; checking for an existing open paper trade."
+        : "Signal is not actionable, so no paper trade was opened.",
+    };
+
+    if (actionablePaperSignal) {
+      const {
+        data: existingOpenPaperTrades,
+        error: existingPaperTradeError,
+      } = await supabase
+        .from("paper_trades")
+        .select("id")
+        .eq("symbol", symbol)
+        .eq("timeframe", timeframe)
+        .eq("status", "open")
+        .limit(1);
+
+      if (existingPaperTradeError) {
+        console.error(
+          "Supabase paper trade lookup error:",
+          existingPaperTradeError
+        );
+
+        paperTrade = {
+          ...paperTrade,
+          reason:
+            "Paper trade lookup failed; analysis completed without opening a duplicate-prone trade.",
+        };
+      } else if (existingOpenPaperTrades?.length) {
+        paperTrade = {
+          eligible: true,
+          recorded: false,
+          duplicatePrevented: true,
+          tradeId: existingOpenPaperTrades[0].id,
+          reason:
+            "An open paper trade already exists for this symbol and timeframe.",
+        };
+      } else {
+        const isLongTermPaperTrade =
+          timeframe === "long-term";
+
+        const paperTradePayload = {
+          symbol,
+          timeframe,
+          action: actionDecision.action,
+          entry_price: round(currentPrice),
+          stop_loss: isLongTermPaperTrade
+            ? null
+            : round(invalidation),
+          take_profit: round(target1),
+          technical_score: technicalScore,
+          final_score: finalScore,
+          confidence,
+          setup_strength: isLongTermPaperTrade
+            ? capitalPlan.allocationStrength
+            : capitalPlan.setupStrength,
+          planned_account_risk_pct:
+            isLongTermPaperTrade
+              ? null
+              : capitalPlan.riskPct,
+          position_ceiling_pct:
+            isLongTermPaperTrade
+              ? capitalPlan.allocationPct
+              : capitalPlan.positionPct,
+          invalidation_distance_pct:
+            isLongTermPaperTrade
+              ? null
+              : capitalPlan.stopDistancePct,
+          leverage: false,
+          status: "open",
+          analysis: {
+            ...result,
+            previousSnapshots: [],
+          },
+        };
+
+        const { data: insertedPaperTrade, error: paperTradeError } =
+          await supabase
+            .from("paper_trades")
+            .insert(paperTradePayload)
+            .select("id")
+            .single();
+
+        if (paperTradeError) {
+          if (paperTradeError.code === "23505") {
+            paperTrade = {
+              eligible: true,
+              recorded: false,
+              duplicatePrevented: true,
+              tradeId: null,
+              reason:
+                "A concurrent request already opened this paper trade.",
+            };
+          } else {
+            console.error(
+              "Supabase paper trade insert error:",
+              paperTradeError
+            );
+
+            paperTrade = {
+              ...paperTrade,
+              reason:
+                "Paper trade insert failed; market analysis still completed normally.",
+            };
+          }
+        } else {
+          paperTrade = {
+            eligible: true,
+            recorded: true,
+            duplicatePrevented: false,
+            tradeId: insertedPaperTrade?.id ?? null,
+            reason:
+              "Actionable signal recorded in the paper trade journal.",
+          };
+        }
+      }
+    }
+
+    result.paperTrade = paperTrade;
+
+    const { error: snapshotError } = await supabase
       .from("analysis_snapshots")
       .insert({
         symbol,
@@ -1823,7 +1963,7 @@ export async function POST(request) {
 
 } catch (error) {
     console.error(
-      "Theo v1.6 analysis error:",
+      "Theo v1.7 analysis error:",
       error
     );
 
