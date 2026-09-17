@@ -535,6 +535,8 @@ export default function Home() {
               </p>
             </section>
 
+            <SnapshotComparison data={data} />
+
             <section style={styles.card}>
               <h2
                 style={
@@ -1255,5 +1257,125 @@ function Metric({
         {value}
       </div>
     </div>
+  );
+}
+
+// A saved row contains the full API result in row.analysis.
+function historyNumber(value) {
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function latestMatchingSnapshot(data) {
+  if (!Array.isArray(data?.previousSnapshots)) return null;
+  return data.previousSnapshots
+    .filter((row) =>
+      row && row.symbol === data.symbol && row.timeframe === data.timeframe &&
+      typeof row.created_at === "string" &&
+      Number.isFinite(Date.parse(row.created_at))
+    )
+    .slice()
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] ?? null;
+}
+
+function historyDelta(current, previous, percentage = false) {
+  const now = historyNumber(current);
+  const before = historyNumber(previous);
+  if (now === null || before === null || (percentage && before <= 0)) return "—";
+  const delta = percentage ? ((now - before) / before) * 100 : now - before;
+  if (!Number.isFinite(delta)) return "—";
+  const rounded = Number(delta.toFixed(2));
+  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(2)}${percentage ? "%" : " pts"}`;
+}
+
+function historyText(value) {
+  return typeof value === "string" && value.trim() ? value : "—";
+}
+
+function SnapshotComparison({ data }) {
+  const previous = latestMatchingSnapshot(data);
+  const oldAnalysis = previous?.analysis?.analysis;
+  const current = data?.analysis;
+  const previousPrice = historyNumber(previous?.current_price) ??
+    historyNumber(previous?.analysis?.market?.priceUSD);
+  const currentPrice = historyNumber(data?.market?.priceUSD);
+  const score = (value) => {
+    const parsed = historyNumber(value);
+    return parsed === null ? "—" : `${parsed}/100`;
+  };
+  const textChange = (before, now) =>
+    historyText(before) === "—" || historyText(now) === "—"
+      ? "—"
+      : before === now ? "Unchanged" : "Changed";
+  const rows = [
+    ["Price", money(previousPrice), money(currentPrice),
+      historyDelta(currentPrice, previousPrice, true)],
+    ["Technical score", score(oldAnalysis?.technicalScore), score(current?.technicalScore),
+      historyDelta(current?.technicalScore, oldAnalysis?.technicalScore)],
+    ["Action score", score(oldAnalysis?.finalScore), score(current?.finalScore),
+      historyDelta(current?.finalScore, oldAnalysis?.finalScore)],
+    ["Outlook", historyText(oldAnalysis?.outlook), historyText(current?.outlook),
+      textChange(oldAnalysis?.outlook, current?.outlook)],
+    ["Action", historyText(oldAnalysis?.action), historyText(current?.action),
+      textChange(oldAnalysis?.action, current?.action)],
+  ];
+  const cellStyle = {
+    padding: "12px 14px",
+    borderBottom: "1px solid #334155",
+    textAlign: "left",
+    whiteSpace: "nowrap",
+  };
+
+  return (
+    <section style={styles.card}>
+      <h2 style={styles.sectionTitle}>CHANGES SINCE PREVIOUS ANALYSIS</h2>
+      {previous ? (
+        <>
+          <p style={{ ...styles.reason, margin: "0 0 14px" }}>
+            {data.symbol} / {MODES.find((mode) => mode.value === data.timeframe)?.label ?? data.timeframe}
+            {" · Previous snapshot: "}
+            <time dateTime={previous.created_at}>
+              {new Date(previous.created_at).toLocaleString(undefined, { timeZoneName: "short" })}
+            </time>
+          </p>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+              <caption style={{ textAlign: "left", color: "#94a3b8", paddingBottom: "10px" }}>
+                Latest result compared with the most recent saved analysis for the same asset and mode.
+              </caption>
+              <thead>
+                <tr>
+                  {["Metric", "Previous", "Current", "Change"].map((heading) => (
+                    <th key={heading} scope="col" style={{ ...cellStyle, color: "#94a3b8" }}>
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(([label, before, now, change]) => (
+                  <tr key={label}>
+                    <th scope="row" style={cellStyle}>{label}</th>
+                    <td style={{ ...cellStyle, color: "#cbd5e1" }}>{before}</td>
+                    <td style={cellStyle}>{now}</td>
+                    <td style={cellStyle}>{change}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p style={styles.paragraph}>
+            Price change is measured from the previous snapshot. Score changes are points out of 100.
+            {" "}A dash means a value is unavailable.
+          </p>
+        </>
+      ) : (
+        <p style={styles.paragraph}>
+          No dated previous snapshot is available for this asset and mode. Run another analysis after this one has been saved to see a comparison.
+        </p>
+      )}
+    </section>
   );
 }
