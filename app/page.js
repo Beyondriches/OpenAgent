@@ -525,13 +525,36 @@ export default function Home() {
                       : "Not provided"
                   }
                 />
+
+                <Metric
+                  label="History Engine"
+                  value={
+                    data?.history?.status ??
+                    "Legacy"
+                  }
+                />
+
+                <Metric
+                  label="Eligible Snapshot"
+                  value={
+                    data?.history?.previousSnapshotAt
+                      ? new Date(
+                          data.history.previousSnapshotAt
+                        ).toLocaleString()
+                      : "Warming Up"
+                  }
+                />
               </div>
 
               <p style={styles.paragraph}>
-                {Array.isArray(data.previousSnapshots) &&
-                data.previousSnapshots.length > 0
-                  ? "Previous snapshots received for this asset and timeframe."
-                  : "No previous snapshots received in this response."}
+                {data?.history?.status === "Eligible"
+                  ? data.history.reason
+                  : data?.history?.status === "Warming Up"
+                    ? "History is warming up. Theo waits for a snapshot at least five minutes older before historical movement can influence the decision."
+                    : Array.isArray(data.previousSnapshots) &&
+                        data.previousSnapshots.length > 0
+                      ? "Previous snapshots received for this asset and timeframe."
+                      : "No previous snapshots received in this response."}
               </p>
             </section>
 
@@ -920,6 +943,65 @@ export default function Home() {
                    </div>
                    </section>
 
+                   {analysis.decisionBreakdown && (
+                     <section style={styles.card}>
+                       <h2 style={styles.sectionTitle}>
+                         DECISION BREAKDOWN
+                       </h2>
+
+                       <div style={styles.metrics}>
+                         <Metric
+                           label="Technical Base"
+                           value={`${analysis.decisionBreakdown.technicalScore}/100`}
+                         />
+
+                         <Metric
+                           label="Risk / Reward Adjustment"
+                           value={`${signed(analysis.decisionBreakdown.riskRewardAdjustment)} pts`}
+                         />
+
+                         <Metric
+                           label="Entry Adjustment"
+                           value={`${signed(analysis.decisionBreakdown.entryQualityAdjustment)} pts`}
+                         />
+
+                         <Metric
+                           label="Orchestrator Adjustment"
+                           value={`${signed(analysis.decisionBreakdown.orchestratorAdjustment)} pts`}
+                         />
+
+                         <Metric
+                           label="History Adjustment"
+                           value={`${signed(analysis.decisionBreakdown.historyAdjustment)} pts`}
+                         />
+
+                         <Metric
+                           label="Final Action Score"
+                           value={`${analysis.decisionBreakdown.finalScore}/100`}
+                         />
+
+                         <Metric
+                           label="History Status"
+                           value={analysis.decisionBreakdown.historyStatus}
+                         />
+
+                         <Metric
+                           label="History Gate"
+                           value={
+                             analysis.decisionBreakdown.historyGateApplied
+                               ? "APPLIED"
+                               : "Not Applied"
+                           }
+                         />
+                       </div>
+
+                       <p style={styles.paragraph}>
+                         {data?.history?.reason ??
+                           "No historical decision context is available yet."}
+                       </p>
+                     </section>
+                   )}
+
                    <section style={styles.card}>
                      <h2
                        style={
@@ -1268,18 +1350,6 @@ function historyNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function latestMatchingSnapshot(data) {
-  if (!Array.isArray(data?.previousSnapshots)) return null;
-  return data.previousSnapshots
-    .filter((row) =>
-      row && row.symbol === data.symbol && row.timeframe === data.timeframe &&
-      typeof row.created_at === "string" &&
-      Number.isFinite(Date.parse(row.created_at))
-    )
-    .slice()
-    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] ?? null;
-}
-
 function historyDelta(current, previous, percentage = false) {
   const now = historyNumber(current);
   const before = historyNumber(previous);
@@ -1295,32 +1365,59 @@ function historyText(value) {
 }
 
 function SnapshotComparison({ data }) {
-  const previous = latestMatchingSnapshot(data);
-  const oldAnalysis = previous?.analysis?.analysis;
+  const history = data?.history;
+  const previous = history?.previous;
   const current = data?.analysis;
-  const previousPrice = historyNumber(previous?.current_price) ??
-    historyNumber(previous?.analysis?.market?.priceUSD);
+  const previousPrice = historyNumber(previous?.price);
   const currentPrice = historyNumber(data?.market?.priceUSD);
+
   const score = (value) => {
     const parsed = historyNumber(value);
     return parsed === null ? "—" : `${parsed}/100`;
   };
+
   const textChange = (before, now) =>
     historyText(before) === "—" || historyText(now) === "—"
       ? "—"
       : before === now ? "Unchanged" : "Changed";
+
   const rows = [
-    ["Price", money(previousPrice), money(currentPrice),
-      historyDelta(currentPrice, previousPrice, true)],
-    ["Technical score", score(oldAnalysis?.technicalScore), score(current?.technicalScore),
-      historyDelta(current?.technicalScore, oldAnalysis?.technicalScore)],
-    ["Action score", score(oldAnalysis?.finalScore), score(current?.finalScore),
-      historyDelta(current?.finalScore, oldAnalysis?.finalScore)],
-    ["Outlook", historyText(oldAnalysis?.outlook), historyText(current?.outlook),
-      textChange(oldAnalysis?.outlook, current?.outlook)],
-    ["Action", historyText(oldAnalysis?.action), historyText(current?.action),
-      textChange(oldAnalysis?.action, current?.action)],
+    [
+      "Price",
+      money(previousPrice),
+      money(currentPrice),
+      history?.priceChangePct == null
+        ? "—"
+        : `${signed(number(history.priceChangePct))}%`,
+    ],
+    [
+      "Technical score",
+      score(previous?.technicalScore),
+      score(current?.technicalScore),
+      history?.technicalScoreChange == null
+        ? "—"
+        : `${signed(number(history.technicalScoreChange))} pts`,
+    ],
+    [
+      "Action score",
+      score(previous?.finalScore),
+      score(current?.finalScore),
+      historyDelta(current?.finalScore, previous?.finalScore),
+    ],
+    [
+      "Outlook",
+      historyText(previous?.outlook),
+      historyText(current?.outlook),
+      textChange(previous?.outlook, current?.outlook),
+    ],
+    [
+      "Action",
+      historyText(previous?.action),
+      historyText(current?.action),
+      textChange(previous?.action, current?.action),
+    ],
   ];
+
   const cellStyle = {
     padding: "12px 14px",
     borderBottom: "1px solid #334155",
@@ -1330,20 +1427,24 @@ function SnapshotComparison({ data }) {
 
   return (
     <section style={styles.card}>
-      <h2 style={styles.sectionTitle}>CHANGES SINCE PREVIOUS ANALYSIS</h2>
-      {previous ? (
+      <h2 style={styles.sectionTitle}>
+        CHANGES SINCE ELIGIBLE ANALYSIS
+      </h2>
+
+      {history?.status === "Eligible" && previous ? (
         <>
           <p style={{ ...styles.reason, margin: "0 0 14px" }}>
             {data.symbol} / {MODES.find((mode) => mode.value === data.timeframe)?.label ?? data.timeframe}
-            {" · Previous snapshot: "}
-            <time dateTime={previous.created_at}>
-              {new Date(previous.created_at).toLocaleString(undefined, { timeZoneName: "short" })}
+            {" · Eligible snapshot: "}
+            <time dateTime={history.previousSnapshotAt}>
+              {new Date(history.previousSnapshotAt).toLocaleString(undefined, { timeZoneName: "short" })}
             </time>
           </p>
+
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
               <caption style={{ textAlign: "left", color: "#94a3b8", paddingBottom: "10px" }}>
-                Latest result compared with the most recent saved analysis for the same asset and mode.
+                Current analysis compared with the newest saved snapshot that is at least five minutes older.
               </caption>
               <thead>
                 <tr>
@@ -1366,16 +1467,18 @@ function SnapshotComparison({ data }) {
               </tbody>
             </table>
           </div>
+
           <p style={styles.paragraph}>
-            Price change is measured from the previous snapshot. Score changes are points out of 100.
-            {" "}A dash means a value is unavailable.
+            Historical scoring only uses eligible snapshots. Rapid repeat clicks remain visible in memory, but they do not manufacture a new history signal.
           </p>
         </>
       ) : (
         <p style={styles.paragraph}>
-          No dated previous snapshot is available for this asset and mode. Run another analysis after this one has been saved to see a comparison.
+          <strong>Warming Up.</strong>{" "}
+          No snapshot at least five minutes older is available for this asset and mode yet. Current analysis still works, but history contributes 0 points until an eligible comparison exists.
         </p>
       )}
     </section>
   );
 }
+

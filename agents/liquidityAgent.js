@@ -1,11 +1,9 @@
 export function evaluateLiquidity({
   historicalVolumes,
-  currentPrice,
 }) {
   if (
     !Array.isArray(historicalVolumes) ||
-    historicalVolumes.length < 2 ||
-    !Number.isFinite(currentPrice)
+    historicalVolumes.length < 2
   ) {
     return {
       liquidity: "Unknown",
@@ -24,8 +22,8 @@ export function evaluateLiquidity({
       0
     ) / recentVolumes.length;
 
-  const estimatedTurnover =
-    averageVolume * currentPrice;
+  // historicalVolumes is normalized upstream to USD turnover.
+  const estimatedTurnover = averageVolume;
 
   let liquidity = "Moderate";
   let score = 0;

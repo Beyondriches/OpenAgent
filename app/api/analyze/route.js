@@ -4,7 +4,7 @@ import { evaluateRiskReward } from "../../../agents/riskAgent";
 import { getOutlook } from "../../../agents/marketAgent";
 import { evaluateMomentum } from "../../../agents/momentumAgent";
 import { evaluateTrend } from "../../../agents/trendAgent";
-import { evaluateVolatility } from "../../../agents/volatilityagent";
+import { evaluateVolatility } from "../../../agents/volatilityAgent";
 import { evaluateVolume } from "../../../agents/volumeAgent";
 import { evaluateLiquidity } from "../../../agents/liquidityAgent";
 import { evaluateStructure } from "../../../agents/structureAgent";
@@ -13,6 +13,15 @@ import { evaluateDataAnalysis } from "../../../agents/dataAnalysisAgent";
 import { evaluateRegime } from "../../../agents/regimeAgent";
 import { evaluateComparison } from "../../../agents/compareAgent";
 import { evaluateOrchestration } from "../../../agents/orchestratorAgent";
+import { normalizeCoinbaseCandles } from "../../../agents/marketDataNormalizer";
+import {
+  calculateOrchestratorAdjustment,
+  calculateFinalActionScore,
+  evaluateHistory,
+  applyHistoryGate,
+  buildDecisionBreakdown,
+  HISTORY_MIN_AGE_MS,
+} from "../../../agents/decisionEngine";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -80,7 +89,7 @@ const MODES = {
 };
 
 /*
-  v1.4 RISK PROFILE
+  v1.6 RISK PROFILE
 
   Aggressive means Theo may accept larger predefined
   risk when setup quality supports it.
@@ -553,7 +562,7 @@ function determineAction({
 }
 
 /*
-  v1.4 POSITION SIZING ENGINE
+  v1.6 POSITION SIZING ENGINE
 
   Risk percentage = maximum planned account loss
   if invalidation is reached.
@@ -719,7 +728,7 @@ function calculateTradingPosition({
       : 0;
 
   /*
-    No leverage in v1.4.
+    No leverage in v1.6.
     Therefore position size cannot exceed 100%
     of dedicated trading capital.
   */
@@ -806,7 +815,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "Theo Crypto Agent",
-    version: "1.4",
+    version: "1.6",
     engine:
       "Theo Capital Protection + Aggressive Position Sizing Engine",
     riskProfile: RISK_PROFILE.name,
@@ -884,19 +893,47 @@ export async function POST(request) {
       );
     }
 
-    const { data: previousSnapshots, error: historyError } =
-      await supabase
-        .from("analysis_snapshots")
-        .select("*")
-        .eq("symbol", symbol)
-        .eq("timeframe", timeframe)
-        .order("created_at", { ascending: false })
-        .limit(5);
+    const historyCutoff = new Date(
+      Date.now() - HISTORY_MIN_AGE_MS
+    ).toISOString();
 
-    if (historyError) {
+    const [recentHistoryResult, eligibleHistoryResult] =
+      await Promise.all([
+        supabase
+          .from("analysis_snapshots")
+          .select("*")
+          .eq("symbol", symbol)
+          .eq("timeframe", timeframe)
+          .order("created_at", { ascending: false })
+          .limit(5),
+
+        supabase
+          .from("analysis_snapshots")
+          .select("*")
+          .eq("symbol", symbol)
+          .eq("timeframe", timeframe)
+          .lte("created_at", historyCutoff)
+          .order("created_at", { ascending: false })
+          .limit(1),
+      ]);
+
+    const previousSnapshots =
+      recentHistoryResult.data || [];
+
+    const eligibleHistorySnapshot =
+      eligibleHistoryResult.data?.[0] ?? null;
+
+    if (recentHistoryResult.error) {
       console.warn(
-        "Supabase history read failed:",
-        historyError.message
+        "Supabase recent history read failed:",
+        recentHistoryResult.error.message
+      );
+    }
+
+    if (eligibleHistoryResult.error) {
+      console.warn(
+        "Supabase eligible history read failed:",
+        eligibleHistoryResult.error.message
       );
     }
 
@@ -910,6 +947,7 @@ export async function POST(request) {
       `?vs_currency=usd&days=${config.days}&interval=daily`;
     
     const fallbackSymbol = FALLBACK_SYMBOLS[symbol];
+    let marketSource = "CoinGecko";
 
     let [marketResponse, historyResponse] =
       await Promise.all([
@@ -968,19 +1006,16 @@ export async function POST(request) {
 
   const fallbackData = await fallbackResponse.json();
 
-  const fallbackPrices = fallbackData
-    .map((candle) => Number(candle[4]))
-    .filter((price) => Number.isFinite(price))
-    .reverse();
-
-  const fallbackVolumes = fallbackData
-    .map((candle) => Number(candle[5]))
-    .filter((volume) => Number.isFinite(volume))
-    .reverse();
+  const {
+    prices: fallbackPrices,
+    volumesUSD: fallbackVolumesUSD,
+  } = normalizeCoinbaseCandles(fallbackData);
 
   if (fallbackPrices.length < 2) {
     throw new Error("Coinbase fallback returned insufficient price data.");
   }
+
+  marketSource = "Coinbase";
 
   const latestPrice =
     fallbackPrices[fallbackPrices.length - 1];
@@ -1014,9 +1049,9 @@ export async function POST(request) {
         index,
         price,
       ]),
-      total_volumes: fallbackVolumes.map((volume, index) => [
+      total_volumes: fallbackVolumesUSD.map((volumeUSD, index) => [
         index,
-        volume,
+        volumeUSD,
       ]),
     }),
     {
@@ -1158,7 +1193,6 @@ export async function POST(request) {
 
     const liquidityAgent = evaluateLiquidity({
       historicalVolumes,
-      currentPrice,
     });
 
     const structureAgent = evaluateStructure({
@@ -1427,16 +1461,31 @@ export async function POST(request) {
         timeframe,
       });
 
-    let finalScore =
-      technicalScore +
-      rrEvaluation.adjustment +
-      entryQuality.adjustment;
+    const orchestratorAdjustment =
+      calculateOrchestratorAdjustment(
+        orchestratorAgent
+      );
 
-    finalScore = Math.round(
-      clamp(finalScore, 0, 100)
-    );
+    const history = evaluateHistory({
+      currentPrice,
+      currentTechnicalScore: technicalScore,
+      currentOrchestratorAgent: orchestratorAgent,
+      previousSnapshot: eligibleHistorySnapshot,
+    });
 
-    const actionDecision =
+    const finalScore =
+      calculateFinalActionScore({
+        technicalScore,
+        riskRewardAdjustment:
+          rrEvaluation.adjustment,
+        entryQualityAdjustment:
+          entryQuality.adjustment,
+        orchestratorAdjustment,
+        historyAdjustment:
+          history.adjustment,
+      });
+
+    const baseActionDecision =
       determineAction({
         timeframe,
         outlook,
@@ -1445,6 +1494,28 @@ export async function POST(request) {
         entryQuality,
         rr2,
         minimumRR: config.minRR,
+      });
+
+    const actionDecision =
+      applyHistoryGate(
+        baseActionDecision,
+        history
+      );
+
+    const decisionBreakdown =
+      buildDecisionBreakdown({
+        technicalScore,
+        riskRewardAdjustment:
+          rrEvaluation.adjustment,
+        entryQualityAdjustment:
+          entryQuality.adjustment,
+        orchestratorAdjustment,
+        historyAdjustment:
+          history.adjustment,
+        finalScore,
+        history,
+        historyGateApplied:
+          actionDecision.historyGateApplied,
       });
 
     const confidence =
@@ -1458,7 +1529,7 @@ export async function POST(request) {
       );
 
     /*
-      v1.4 CAPITAL ENGINE
+      v1.6 CAPITAL ENGINE
     */
 
     let capitalPlan;
@@ -1498,8 +1569,9 @@ export async function POST(request) {
       previousSnapshots: previousSnapshots || [],
       previousSnapshotCount: previousSnapshots?.length || 0,
       live: true,
-      source: "CoinGecko",
-      version: "1.4",
+      source: marketSource,
+      version: "1.6",
+      history,
 
       riskProfile: {
         name: RISK_PROFILE.name,
@@ -1538,6 +1610,7 @@ export async function POST(request) {
         technicalScore,
         finalScore,
         confidence,
+        decisionBreakdown,
 
         outlookReason:
           `Theo's ${timeframe} market outlook is ${outlook.toLowerCase()} based on trend, momentum, price structure and volatility.`,
@@ -1676,7 +1749,7 @@ export async function POST(request) {
 
         "Long-term capital and short-term trading capital are evaluated separately.",
 
-        "No leverage is used in the v1.4 sizing model.",
+        "No leverage is used in the v1.6 sizing model.",
 
         "Invalidation defines the planned downside boundary, not a guarantee of execution price.",
 
@@ -1711,7 +1784,7 @@ export async function POST(request) {
 
 } catch (error) {
     console.error(
-      "Theo v1.4 analysis error:",
+      "Theo v1.6 analysis error:",
       error
     );
 

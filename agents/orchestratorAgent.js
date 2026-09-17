@@ -226,8 +226,9 @@ if (mode === "day") {
 
   /*
     IMPORTANT:
-    This agent is observational only.
-    It does not issue BUY or SELL instructions.
+    This agent does not issue BUY or SELL instructions directly.
+    Its direction and confidence may be used as a bounded input
+    by the v1.6 decision engine.
   */
 
   return {
