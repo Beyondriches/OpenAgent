@@ -842,6 +842,15 @@ export default function Home() {
                 />
 
                 <Metric
+                  label="Data Analysis Agent"
+                  value={
+                    analysis.dataAnalysisAgent
+                    ? `${analysis.dataAnalysisAgent.behaviour} • ${analysis.dataAnalysisAgent.trendConsistency} consistency • ${analysis.dataAnalysisAgent.confidence} confidence`
+                    : "N/A"
+                 }
+               />
+
+                <Metric
                   label="Risk"
                   value={analysis.risk}
                 />

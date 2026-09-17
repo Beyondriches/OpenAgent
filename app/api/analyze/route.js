@@ -8,6 +8,7 @@ import { evaluateVolume } from "../../../agents/volumeAgent";
 import { evaluateLiquidity } from "../../../agents/liquidityAgent";
 import { evaluateStructure } from "../../../agents/structureAgent";
 import { evaluateSearchContext } from "../../../agents/searchAgent";
+import { evaluateDataAnalysis } from "../../../agents/dataAnalysisAgent";
 
 const COINS = {
   BTC: "bitcoin",
@@ -1171,6 +1172,12 @@ export async function POST(request) {
       newsItems,
     });
 
+    const dataAnalysisAgent = evaluateDataAnalysis({
+      historicalPrices,
+      historicalVolumes,
+      currentPrice,
+    });
+
     /*
       TECHNICAL OUTLOOK SCORE
     */
@@ -1488,9 +1495,10 @@ export async function POST(request) {
         trendAgent,
         volatilityAgent,
         volumeAgent,
-        
+        liquidityAgent,
         structureAgent,
         searchAgent,
+        dataAnalysisAgent,
 
         risk,
 
