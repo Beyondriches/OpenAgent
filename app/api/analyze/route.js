@@ -1496,6 +1496,7 @@ export async function POST(request) {
       symbol,
       timeframe,
       previousSnapshots: previousSnapshots || [],
+      previousSnapshotCount: previousSnapshots?.length || 0,
       live: true,
       source: "CoinGecko",
       version: "1.4",
