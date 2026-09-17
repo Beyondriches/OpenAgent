@@ -14,6 +14,11 @@ import { evaluateRegime } from "../../../agents/regimeAgent";
 import { evaluateComparison } from "../../../agents/compareAgent";
 import { evaluateOrchestration } from "../../../agents/orchestratorAgent";
 
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SECRET_KEY
+);
+
 const COINS = {
   BTC: "bitcoin",
   ETH: "ethereum",
