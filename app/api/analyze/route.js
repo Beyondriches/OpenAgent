@@ -884,6 +884,22 @@ export async function POST(request) {
       );
     }
 
+    const { data: previousSnapshots, error: historyError } =
+      await supabase
+        .from("analysis_snapshots")
+        .select("*")
+        .eq("symbol", symbol)
+        .eq("timeframe", timeframe)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+    if (historyError) {
+      console.warn(
+        "Supabase history read failed:",
+        historyError.message
+      );
+    }
+
     const marketUrl =
       "https://api.coingecko.com/api/v3/coins/markets" +
       `?vs_currency=usd&ids=${coinId}` +
@@ -1479,6 +1495,7 @@ export async function POST(request) {
       ok: true,
       symbol,
       timeframe,
+      previousSnapshots: previousSnapshots || [],
       live: true,
       source: "CoinGecko",
       version: "1.4",
@@ -1676,7 +1693,10 @@ export async function POST(request) {
         symbol,
         timeframe,
         current_price: currentPrice,
-        analysis: result,
+        analysis: {
+          ...result,
+          previousSnapshots: [],
+        },
       });
 
     if (snapshotError) {
