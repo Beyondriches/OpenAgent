@@ -1,4 +1,5 @@
 export function evaluateOrchestration({
+  mode,
   momentumAgent,
   trendAgent,
   volatilityAgent,
@@ -20,28 +21,49 @@ export function evaluateOrchestration({
   let bullishEvidence = 0;
   let bearishEvidence = 0;
 
+  const weights = {
+  momentum: 1,
+  trend: 2,
+  structure: 2,
+  search: 1,
+};
+
+if (mode === "day") {
+  weights.momentum = 2;
+  weights.trend = 1;
+  weights.structure = 2;
+} else if (mode === "swing") {
+  weights.momentum = 2;
+  weights.trend = 2;
+  weights.structure = 2;
+} else if (mode === "long-term") {
+  weights.momentum = 1;
+  weights.trend = 4;
+  weights.structure = 1;
+}
+
   if (momentumAgent?.momentum === "Bullish") {
-    bullishEvidence += 1;
+    bullishEvidence += weights.momentum;
   } else if (
     momentumAgent?.momentum === "Bearish"
   ) {
-    bearishEvidence += 1;
+    bearishEvidence += weights.momentum;
   }
 
   if (trendAgent?.trend === "Bullish") {
-    bullishEvidence += 2;
+    bullishEvidence += weights.trend;
   } else if (
     trendAgent?.trend === "Bearish"
   ) {
-    bearishEvidence += 2;
+    bearishEvidence += weights.trend;
   }
 
   if (structureAgent?.structure === "Bullish") {
-    bullishEvidence += 2;
+    bullishEvidence += weights.structure;
   } else if (
     structureAgent?.structure === "Bearish"
   ) {
-    bearishEvidence += 2;
+    bearishEvidence += weights.structure;
   }
 
   /*
@@ -53,11 +75,11 @@ export function evaluateOrchestration({
     searchAgent?.confidence === "Medium"
   ) {
     if (searchAgent.sentiment === "Positive") {
-      bullishEvidence += 1;
+      bullishEvidence += weights.search;
     } else if (
       searchAgent.sentiment === "Negative"
     ) {
-      bearishEvidence += 1;
+      bearishEvidence += weights.search;
     }
   }
 
@@ -214,6 +236,8 @@ export function evaluateOrchestration({
     confidenceScore,
     bullishEvidence,
     bearishEvidence,
+    mode,
+    weights,
     observations,
   };
 }
