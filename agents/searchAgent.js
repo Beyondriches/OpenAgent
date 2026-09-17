@@ -106,6 +106,7 @@ export function evaluateSearchContext({
     majorDevelopments,
     riskAlerts,
     confidence,
+    articleCount: newsItems.length,
     signals,
   };
 }

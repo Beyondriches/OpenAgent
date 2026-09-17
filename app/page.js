@@ -836,7 +836,7 @@ export default function Home() {
                   label="Search Agent"
                   value={
                     analysis.searchAgent
-                      ? `${analysis.searchAgent.sentiment} (${analysis.searchAgent.score})`
+                      ? `${analysis.searchAgent.sentiment} (${analysis.searchAgent.score}) • ${analysis.searchAgent.confidence} confidence • ${analysis.searchAgent.articleCount ?? 0} articles`
                       : "N/A"
                   }
                 />
