@@ -851,6 +851,15 @@ export default function Home() {
                />
 
                 <Metric
+                  label="Regime Agent"
+                  value={
+                    analysis.regimeAgent
+                    ? `${analysis.regimeAgent.regime} (${analysis.regimeAgent.score})`
+                    : "N/A"
+                 }
+               />
+
+                <Metric
                   label="Risk"
                   value={analysis.risk}
                 />

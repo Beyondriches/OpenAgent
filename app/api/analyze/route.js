@@ -9,6 +9,7 @@ import { evaluateLiquidity } from "../../../agents/liquidityAgent";
 import { evaluateStructure } from "../../../agents/structureAgent";
 import { evaluateSearchContext } from "../../../agents/searchAgent";
 import { evaluateDataAnalysis } from "../../../agents/dataAnalysisAgent";
+import { evaluateRegime } from "../../../agents/regimeAgent";
 
 const COINS = {
   BTC: "bitcoin",
@@ -1178,6 +1179,13 @@ export async function POST(request) {
       currentPrice,
     });
 
+    const regimeAgent = evaluateRegime({
+      historicalPrices,
+      currentPrice,
+      fastSMA,
+      slowSMA,
+    });
+
     /*
       TECHNICAL OUTLOOK SCORE
     */
@@ -1499,6 +1507,7 @@ export async function POST(request) {
         structureAgent,
         searchAgent,
         dataAnalysisAgent,
+        regimeAgent,
 
         risk,
 
