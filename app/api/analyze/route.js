@@ -11,6 +11,7 @@ import { evaluateSearchContext } from "../../../agents/searchAgent";
 import { evaluateDataAnalysis } from "../../../agents/dataAnalysisAgent";
 import { evaluateRegime } from "../../../agents/regimeAgent";
 import { evaluateComparison } from "../../../agents/compareAgent";
+import { evaluateOrchestration } from "../../../agents/orchestratorAgent";
 
 const COINS = {
   BTC: "bitcoin",
@@ -1196,6 +1197,19 @@ export async function POST(request) {
       regimeAgent,
    });
 
+    const orchestratorAgent = evaluateOrchestration({
+      momentumAgent,
+      trendAgent,
+      volatilityAgent,
+      volumeAgent,
+      liquidityAgent,
+      structureAgent,
+      searchAgent,
+      dataAnalysisAgent,
+      regimeAgent,
+      compareAgent,
+    });
+
     /*
       TECHNICAL OUTLOOK SCORE
     */
@@ -1519,6 +1533,7 @@ export async function POST(request) {
         dataAnalysisAgent,
         regimeAgent,
         compareAgent,
+        orchestratorAgent,
 
         risk,
 

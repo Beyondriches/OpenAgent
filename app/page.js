@@ -826,60 +826,7 @@ export default function Home() {
                 <Metric
                   label="Structure Agent"
                   value={
-                    analysis.structureAgent
-                      ? `${analysis.structureAgent.structure} (${analysis.structureAgent.score})`
-                      : "N/A"
-                  }
-                />
-
-                <Metric
-                  label="Search Agent"
-                  value={
-                    analysis.searchAgent
-                      ? `${analysis.searchAgent.sentiment} (${analysis.searchAgent.score}) • ${analysis.searchAgent.confidence} confidence • ${analysis.searchAgent.articleCount ?? 0} articles`
-                      : "N/A"
-                  }
-                />
-
-                <Metric
-                  label="Data Analysis Agent"
-                  value={
-                    analysis.dataAnalysisAgent
-                    ? `${analysis.dataAnalysisAgent.behaviour} • ${analysis.dataAnalysisAgent.trendConsistency} consistency • ${analysis.dataAnalysisAgent.confidence} confidence`
-                    : "N/A"
-                 }
-               />
-
-                <Metric
-                  label="Regime Agent"
-                  value={
-                    analysis.regimeAgent
-                    ? `${analysis.regimeAgent.regime} (${analysis.regimeAgent.score})`
-                    : "N/A"
-                 }
-               />
-
-                <Metric
-                  label="Compare Agent"
-                  value={
-                    analysis.compareAgent
-                    ? `${analysis.compareAgent.agreement} agreement • ${analysis.compareAgent.direction} • ${analysis.compareAgent.confidence} confidence`
-                    : "N/A"
-                 }
-               />
-
-                <Metric
-                  label="Risk"
-                  value={analysis.risk}
-                />
-              </div>
-            </section>
-
-            <section style={styles.card}>
-              <h2
-                style={
-                  styles.sectionTitle
-                }
+               
               >
                 ENTRY QUALITY
               </h2>
