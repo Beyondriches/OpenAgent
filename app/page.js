@@ -1444,7 +1444,7 @@ function SnapshotComparison({ data }) {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
               <caption style={{ textAlign: "left", color: "#94a3b8", paddingBottom: "10px" }}>
-                Current analysis compared with the newest saved snapshot that is at least {timeframe === "day" ? "one hour" : timeframe === "swing" ? "24 hours" : "7 days"} older.
+                {`Current analysis compared with the newest saved snapshot that is at least ${timeframe === "day" ? "one hour" : timeframe === "swing" ? "24 hours" : "7 days"} older.`}
               </caption>
               <thead>
                 <tr>
@@ -1475,7 +1475,7 @@ function SnapshotComparison({ data }) {
       ) : (
         <p style={styles.paragraph}>
           <strong>Warming Up.</strong>{" "}
-          No snapshot at least {timeframe === "day" ? "one hour" : timeframe === "swing" ? "24 hours" : "7 days"} older is available for this asset and mode yet. Current analysis still works, but history contributes 0 points until an eligible comparison exists.
+          {`No snapshot at least ${timeframe === "day" ? "one hour" : timeframe === "swing" ? "24 hours" : "7 days"} older is available for this asset and mode yet. Current analysis still works, but history contributes 0 points until an eligible comparison exists.`}
         </p>
       )}
     </section>
