@@ -34,7 +34,7 @@ export function selectEligibleSnapshot({
   symbol,
   timeframe,
   nowMs = Date.now(),
-  minAgeMs = FIVE_MINUTES_MS,
+  minAgeMs = HISTORY_MIN_AGE_MS[timeframe],
 }) {
   if (!Array.isArray(snapshots)) return null;
 
@@ -70,7 +70,7 @@ export function evaluateHistory({
       priceChangePct: null,
       technicalScoreChange: null,
       orchestratorDirectionChange: null,
-      reason: "No snapshot old enough for a five-minute comparison is available yet.",
+      reason: "No snapshot old enough for this timeframe's historical comparison is available yet.",
       previous: null,
     };
   }
