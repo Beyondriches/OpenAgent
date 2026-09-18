@@ -927,8 +927,11 @@ export async function POST(request) {
       );
     }
 
+    const historyMinAge =
+      HISTORY_MIN_AGE_MS[timeframe];
+
     const historyCutoff = new Date(
-      Date.now() - HISTORY_MIN_AGE_MS
+      Date.now() - historyMinAge
     ).toISOString();
 
     const recentHistoryQuery = () =>

@@ -245,4 +245,8 @@ export function buildDecisionBreakdown({
   };
 }
 
-export const HISTORY_MIN_AGE_MS = FIVE_MINUTES_MS;
+ export const HISTORY_MIN_AGE_MS = {
+   day: 60 * 60 * 1000,
+   swing: 24 * 60 * 60 * 1000,
+   "long-term": 7 * 24 * 60 * 60 * 1000,
+  };
